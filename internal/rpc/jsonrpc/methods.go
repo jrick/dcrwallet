@@ -74,6 +74,7 @@ var handlers = map[string]handler{
 	"createmultisig":          {fn: (*Server).createMultiSig},
 	"createrawtransaction":    {fn: (*Server).createRawTransaction},
 	"createsignature":         {fn: (*Server).createSignature},
+	"createvspvotingaccount":  {fn: (*Server).createVSPVotingAccount},
 	"discoverusage":           {fn: (*Server).discoverUsage},
 	"dumpprivkey":             {fn: (*Server).dumpPrivKey},
 	"fundrawtransaction":      {fn: (*Server).fundRawTransaction},
@@ -761,6 +762,17 @@ func (s *Server) createSignature(ctx context.Context, icmd interface{}) (interfa
 		Signature: hex.EncodeToString(sig),
 		PublicKey: hex.EncodeToString(pubkey),
 	}, nil
+}
+
+func (s *Server) createVSPVotingAccount(ctx context.Context, icmd interface{}) (interface{}, error) {
+	cmd := icmd.(*types.CreateVSPVotingAccountCmd)
+	w, ok := s.walletLoader.LoadedWallet()
+	if !ok {
+		return nil, errUnloadedWallet
+	}
+
+	_, err := w.CreateVSPVotingAccount(ctx, cmd.Name)
+	return nil, err
 }
 
 func (s *Server) discoverUsage(ctx context.Context, icmd interface{}) (interface{}, error) {

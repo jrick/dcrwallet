@@ -166,6 +166,9 @@ func newAddrFinder(ctx context.Context, w *Wallet) (*addrFinder, error) {
 			}
 		}
 		for acct := uint32(udb.ImportedAddrAccount + 1); acct <= lastImported; acct++ {
+			if w.manager.IsHardenedAccount(dbtx, acct) {
+				continue
+			}
 			if err := addUsage(acct); err != nil {
 				return err
 			}

@@ -38,3 +38,5 @@ require (
 	golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7
 	google.golang.org/grpc v1.25.1
 )
+
+replace go.etcd.io/bbolt v1.3.4 => github.com/jrick/bbolt v1.3.4-0.20200503173257-81f25783ae43

@@ -426,30 +426,36 @@ func (m *Manager) loadAccountInfo(ns walletdb.ReadBucket, account uint32) (*acco
 
 	// The account is either invalid or just wasn't cached, so attempt to
 	// load the information from the database.
-	row, err := fetchAccountInfo(ns, account, DBVersion)
+	row, err := fetchDBAccount(ns, account, DBVersion)
 	if err != nil {
-		if errors.Is(err, errors.NotExist) {
-			return nil, err
-		}
-		return nil, errors.E(errors.NotExist, errors.Errorf("no account %d", account))
-	}
-
-	// Use the crypto public key to decrypt the account public extended key.
-	serializedKeyPub, err := m.cryptoKeyPub.Decrypt(row.pubKeyEncrypted)
-	if err != nil {
-		return nil, errors.E(errors.Crypto, errors.Errorf("decrypt account %d pubkey: %v", account, err))
-	}
-	acctKeyPub, err := hdkeychain.NewKeyFromString(string(serializedKeyPub), m.chainParams)
-	if err != nil {
-		return nil, errors.E(errors.IO, err)
+		return nil, err
 	}
 
 	// Create the new account info with the known information.  The rest
 	// of the fields are filled out below.
-	acctInfo := &accountInfo{
-		acctName:         row.name,
-		acctKeyEncrypted: row.privKeyEncrypted,
-		acctKeyPub:       acctKeyPub,
+	acctInfo := new(accountInfo)
+
+	switch row := row.(type) {
+	case *dbBIP0044AccountRow:
+		// Use the crypto public key to decrypt the account public extended key.
+		serializedKeyPub, err := m.cryptoKeyPub.Decrypt(row.pubKeyEncrypted)
+		if err != nil {
+			err := errors.Errorf("decrypt account %d pubkey: %v", account, err)
+			return nil, errors.E(errors.Crypto, err)
+		}
+		acctKeyPub, err := hdkeychain.NewKeyFromString(string(serializedKeyPub), m.chainParams)
+		if err != nil {
+			return nil, errors.E(errors.IO, err)
+		}
+
+		acctInfo.acctName = row.name
+		acctInfo.acctKeyEncrypted = row.privKeyEncrypted
+		acctInfo.acctKeyPub = acctKeyPub
+
+	case *dbHardenedPurposeAccount:
+		acctInfo.acctName = row.name
+		acctInfo.acctKeyEncrypted = row.privKeyEncrypted
+		// acctInfo.acctKeyPub intentionally left nil
 	}
 
 	if !m.locked && len(acctInfo.acctKeyEncrypted) != 0 {
@@ -502,14 +508,22 @@ func (m *Manager) AccountProperties(ns walletdb.ReadBucket, account uint32) (*Ac
 			return nil, err
 		}
 		props.AccountName = acctInfo.acctName
-		row, err := fetchAccountInfo(ns, account, DBVersion)
+		a, err := fetchDBAccount(ns, account, DBVersion)
 		if err != nil {
 			return nil, errors.E(errors.IO, err)
 		}
-		props.LastUsedExternalIndex = row.lastUsedExternalIndex
-		props.LastUsedInternalIndex = row.lastUsedInternalIndex
-		props.LastReturnedExternalIndex = row.lastReturnedExternalIndex
-		props.LastReturnedInternalIndex = row.lastReturnedInternalIndex
+		switch a := a.(type) {
+		case *dbBIP0044AccountRow:
+			props.LastUsedExternalIndex = a.lastUsedExternalIndex
+			props.LastUsedInternalIndex = a.lastUsedInternalIndex
+			props.LastReturnedExternalIndex = a.lastReturnedExternalIndex
+			props.LastReturnedInternalIndex = a.lastReturnedInternalIndex
+		case *dbHardenedPurposeAccount:
+			props.LastUsedExternalIndex = a.lastUsedExternalIndex
+			props.LastUsedInternalIndex = a.lastUsedInternalIndex
+			props.LastReturnedExternalIndex = a.lastReturnedExternalIndex
+			props.LastReturnedInternalIndex = a.lastReturnedInternalIndex
+		}
 	} else {
 		props.AccountName = ImportedAddrAccountName // reserved, nonchangable
 
@@ -542,6 +556,9 @@ func (m *Manager) AccountExtendedPubKey(dbtx walletdb.ReadTx, account uint32) (*
 	if err != nil {
 		return nil, err
 	}
+	if acctInfo.acctKeyPub == nil && account > ImportedAddrAccount {
+		return nil, errors.E(errors.Invalid, "hardened account xpub usage is forbidden")
+	}
 	return acctInfo.acctKeyPub, nil
 }
 
@@ -552,16 +569,13 @@ func (m *Manager) AccountExtendedPrivKey(dbtx walletdb.ReadTx, account uint32) (
 	if account == ImportedAddrAccount {
 		return nil, errors.E(errors.Invalid, "imported address account has no extended privkey")
 	}
-	if account > ImportedAddrAccount {
-		return nil, errors.E(errors.Invalid, "imported xpub account has no extended privkey")
-	}
 
 	ns := dbtx.ReadBucket(waddrmgrBucketKey)
+
 	var (
 		acctInfo *accountInfo
 		err      error
 	)
-
 	m.mtx.Lock()
 	if m.locked {
 		err = errors.E(errors.Locked, "locked address manager cannot fetch extended privkey")
@@ -572,6 +586,11 @@ func (m *Manager) AccountExtendedPrivKey(dbtx walletdb.ReadTx, account uint32) (
 	if err != nil {
 		return nil, err
 	}
+
+	if acctInfo.acctKeyPriv == nil {
+		return nil, errors.E(errors.Invalid, "imported xpub account has no extended privkey")
+	}
+
 	return acctInfo.acctKeyPriv, nil
 }
 
@@ -851,6 +870,18 @@ func (m *Manager) scriptAddressRowToManaged(row *dbScriptAddressRow) (ManagedAdd
 	return newScriptAddress(m, row.account, scriptHash, row.script)
 }
 
+// hardenedAddressRowToManaged returns a new managed address based on hardened
+// address data loaded from the database.
+func (m *Manager) hardenedAddressRowToManaged(row *dbHardenedAddressRow) (ManagedAddress, error) {
+	// Use the crypto public key to decrypt the imported public key.
+	pubKey, err := m.cryptoKeyPub.Decrypt(row.encryptedPubKey)
+	if err != nil {
+		return nil, errors.E(errors.Crypto, errors.Errorf("decrypt hardened address pubkey: %v", err))
+	}
+
+	return m.keyToManaged(pubKey, row.account, row.branch, row.index)
+}
+
 // rowInterfaceToManaged returns a new managed address based on the given
 // address data loaded from the database.  It will automatically select the
 // appropriate type.
@@ -866,6 +897,9 @@ func (m *Manager) rowInterfaceToManaged(ns walletdb.ReadBucket, rowInterface int
 
 	case *dbScriptAddressRow:
 		return m.scriptAddressRowToManaged(row)
+
+	case *dbHardenedAddressRow:
+		return m.hardenedAddressRowToManaged(row)
 	}
 
 	return nil, errors.E(errors.Invalid, errors.Errorf("address type %T", rowInterface))
@@ -1173,7 +1207,7 @@ func (m *Manager) ImportPrivateKey(ns walletdb.ReadWriteBucket, wif *dcrutil.WIF
 
 	// Save the new imported address to the db and update start block (if
 	// needed) in a single transaction.
-	err = putImportedAddress(ns, pubKeyHash, ImportedAddrAccount, ssNone,
+	err = putImportedAddress(ns, pubKeyHash, ImportedAddrAccount,
 		encryptedPubKey, encryptedPrivKey)
 	if err != nil {
 		return nil, err
@@ -1214,7 +1248,7 @@ func (m *Manager) ImportScript(ns walletdb.ReadWriteBucket, script []byte) (Mana
 	// Save the new imported address to the db and update start block (if
 	// needed) in a single transaction.
 	err = putScriptAddress(ns, scriptHash, ImportedAddrAccount,
-		ssNone, encryptedHash, script)
+		encryptedHash, script)
 	if err != nil {
 		return nil, err
 	}
@@ -1257,7 +1291,7 @@ func (m *Manager) ImportXpubAccount(ns walletdb.ReadWriteBucket, name string, xp
 	// database
 	row := bip0044AccountInfo(acctPubEnc, nil, 0, 0,
 		^uint32(0), ^uint32(0), ^uint32(0), ^uint32(0), name, DBVersion)
-	err = putAccountInfo(ns, account, row)
+	err = putBIP0044AccountInfo(ns, account, row)
 	if err != nil {
 		return err
 	}
@@ -1387,7 +1421,7 @@ func (m *Manager) Unlock(ns walletdb.ReadBucket, passphrase []byte) error {
 	// Use the crypto private key to decrypt all of the account private
 	// extended keys.
 	for account, acctInfo := range m.acctInfo {
-		if account > ImportedAddrAccount {
+		if len(acctInfo.acctKeyEncrypted) == 0 {
 			continue
 		}
 		decrypted, err := m.cryptoKeyPriv.Decrypt(acctInfo.acctKeyEncrypted)
@@ -1625,7 +1659,7 @@ func (m *Manager) syncAccountToAddrIndex(ns walletdb.ReadWriteBucket, account ui
 			break
 		}
 
-		err = putChainedAddress(ns, hash160, account, ssFull, branch, child)
+		err = putChainedAddress(ns, hash160, account, branch, child)
 		if err != nil {
 			return err
 		}
@@ -1735,7 +1769,7 @@ func (m *Manager) NewAccount(ns walletdb.ReadWriteBucket, name string) (uint32, 
 	// database
 	row := bip0044AccountInfo(acctPubEnc, acctPrivEnc, 0, 0,
 		^uint32(0), ^uint32(0), ^uint32(0), ^uint32(0), name, DBVersion)
-	err = putAccountInfo(ns, account, row)
+	err = putBIP0044AccountInfo(ns, account, row)
 	if err != nil {
 		return 0, err
 	}
@@ -1746,6 +1780,200 @@ func (m *Manager) NewAccount(ns walletdb.ReadWriteBucket, name string) (uint32, 
 	}
 
 	return account, nil
+}
+
+const vspPurpose = 565350 // "VSP", encoded as hex, interpreted as decimal
+
+// CreateVSPVotingAccount creates an account, with all addresses using hardened
+// derivation, with the sole purpose of providing private keys for voting
+// addresses that can be shared with external voting service providers (VSP).
+func (m *Manager) CreateVSPVotingAccount(dbtx walletdb.ReadWriteTx, name string) (uint32, error) {
+	defer m.mtx.Unlock()
+	m.mtx.Lock()
+
+	ns := dbtx.ReadWriteBucket(waddrmgrBucketKey)
+
+	if m.watchingOnly {
+		return 0, errors.E(errors.WatchingOnly)
+	}
+
+	if m.locked {
+		return 0, errors.E(errors.Locked)
+	}
+
+	// Validate account name
+	if err := ValidateAccountName(name); err != nil {
+		return 0, err
+	}
+
+	// Check that account with the same name does not exist
+	_, err := fetchAccountByName(ns, name)
+	if err == nil {
+		return 0, errors.E(errors.Exist, errors.Errorf("account named %q already exists", name))
+	}
+
+	// Reserve next additional account number
+	account, err := fetchLastImportedAccount(ns)
+	if err != nil {
+		return 0, err
+	}
+	account++
+
+	// Fetch the cointype key which will be used to derive the next account
+	// extended keys
+	_, coinTypePrivEnc, err := fetchCoinTypeKeys(ns)
+	if err != nil {
+		return 0, err
+	}
+
+	// Decrypt the cointype key
+	serializedKeyPriv, err := m.cryptoKeyPriv.Decrypt(coinTypePrivEnc)
+	if err != nil {
+		return 0, errors.E(errors.Crypto, errors.Errorf("decrypt cointype privkey: %v", err))
+	}
+	coinTypeKeyPriv, err :=
+		hdkeychain.NewKeyFromString(string(serializedKeyPriv), m.chainParams)
+	zero(serializedKeyPriv)
+	if err != nil {
+		return 0, errors.E(errors.IO, err)
+	}
+
+	var purpose uint32 = vspPurpose
+
+	// Derive the (non-hardened) purpose key.
+	purposeKey, err := coinTypeKeyPriv.Child(purpose)
+	coinTypeKeyPriv.Zero()
+	if err != nil {
+		return 0, errors.E(errors.Crypto, err)
+	}
+	// Derive hardened child from purpose key.  This is done to prevent a
+	// compromised privkey saved for other pursoses from also compromising
+	// keys under this path.  It is this key that is recorded to the database.
+	// Hardened keys can not be directly derived from the cointype key as
+	// these paths are already used for BIP0044 account keys.
+	key, err := purposeKey.Child(hdkeychain.HardenedKeyStart)
+	purposeKey.Zero()
+	if err != nil {
+		return 0, errors.E(errors.Crypto, err)
+	}
+
+	serializedKey := key.String()
+	acctPrivEnc, err := m.cryptoKeyPriv.Encrypt([]byte(serializedKey))
+	key.Zero()
+	if err != nil {
+		return 0, errors.E(errors.Crypto, errors.Errorf("encrypt hardened purpose key: %v", err))
+	}
+	// Record account and encrypted key to database
+	row := &dbHardenedPurposeAccount{
+		purpose:                   purpose,
+		privKeyEncrypted:          acctPrivEnc,
+		lastUsedExternalIndex:     ^uint32(0),
+		lastUsedInternalIndex:     ^uint32(0),
+		lastReturnedExternalIndex: ^uint32(0),
+		lastReturnedInternalIndex: ^uint32(0),
+		name:                      name,
+	}
+	row.acctType = actHardenedPurpose
+	row.rawData = row.serializeRow()
+	err = putHardenedPurposeAccount(ns, account, row)
+	if err != nil {
+		return 0, err
+	}
+
+	// Save last account metadata
+	if err := putLastImportedAccount(ns, account); err != nil {
+		return 0, err
+	}
+
+	return account, nil
+}
+
+// IsHardenedAccount checks whether an account derives hardened private keys for
+// addresses.  Some functionality is not available to these accounts through the
+// Manager.
+func (m *Manager) IsHardenedAccount(dbtx walletdb.ReadTx, account uint32) bool {
+	ns := dbtx.ReadBucket(waddrmgrBucketKey)
+	row, err := fetchAccountRow(ns, account, DBVersion)
+	return err == nil && row.acctType == actHardenedPurpose
+}
+
+// CreateHardenedChild derives a hardened private key for a hardened account.
+// This key is not zero'd when the address manager is locked.
+func (m *Manager) CreateHardenedChild(dbtx walletdb.ReadTx, account, branch, child uint32) (*hdkeychain.ExtendedKey, error) {
+
+	if branch < hdkeychain.HardenedKeyStart {
+		return nil, errors.E(errors.Invalid, "branch index must be for a hardened derivation")
+	}
+	if child < hdkeychain.HardenedKeyStart {
+		return nil, errors.E(errors.Invalid, "child index must be for a hardened derivation")
+	}
+
+	defer m.mtx.Unlock()
+	m.mtx.Lock()
+
+	ns := dbtx.ReadBucket(waddrmgrBucketKey)
+
+	if m.watchingOnly {
+		return nil, errors.E(errors.WatchingOnly)
+	}
+	if m.locked {
+		return nil, errors.E(errors.Locked)
+	}
+
+	if !m.IsHardenedAccount(dbtx, account) {
+		return nil, errors.E(errors.Invalid, "account type does not support "+
+			"hardened key derivations")
+	}
+
+	acctInfo, err := m.loadAccountInfo(ns, account)
+	if err != nil {
+		return nil, err
+	}
+	return deriveKey(acctInfo, branch, child, true)
+}
+
+// RecordDerivedAddress adds an address derived from an account key to the
+// wallet's database.  The branch and child parameters should not have the
+// hardened offset applied.  If the child is larger than the currently-recorded
+// last returned address for the branch, the account variable is updated.  This
+// method is currently limited to P2PKH addresses for hardened purpose accounts
+// only.
+func (m *Manager) RecordDerivedAddress(dbtx walletdb.ReadWriteTx, account, branch, child uint32, pubkey []byte) error {
+
+	ns := dbtx.ReadWriteBucket(waddrmgrBucketKey)
+
+	hash160 := dcrutil.Hash160(pubkey)
+	encryptedPubKey, err := m.cryptoKeyPub.Encrypt(pubkey)
+	if err != nil {
+		return err
+	}
+	err = putHardenedAddress(ns, hash160, account, branch, child, encryptedPubKey)
+	if err != nil {
+		return err
+	}
+
+	bucketKey := uint32ToBytes(account)
+	varsBucket := ns.NestedReadWriteBucket(acctVarsBucketName).NestedReadWriteBucket(bucketKey)
+	if err != nil {
+		return err
+	}
+	varName := acctVarLastReturnedExternal
+	if branch == 1 {
+		varName = acctVarLastReturnedInternal
+	}
+	var r accountVarReader
+	lastRet := r.getAccountUint32Var(varsBucket, varName)
+	if r.err != nil {
+		return r.err
+	}
+	if child > lastRet || lastRet == ^uint32(0) {
+		err = putAccountUint32Var(varsBucket, varName, child)
+		if err != nil {
+			return err
+		}
+	}
+	
+	return nil
 }
 
 // RenameAccount renames an account stored in the manager based on the
@@ -1787,7 +2015,7 @@ func (m *Manager) RenameAccount(ns walletdb.ReadWriteBucket, account uint32, nam
 		0, 0, row.lastUsedExternalIndex, row.lastUsedInternalIndex,
 		row.lastReturnedExternalIndex, row.lastReturnedInternalIndex,
 		name, DBVersion)
-	err = putAccountInfo(ns, account, row)
+	err = putBIP0044AccountInfo(ns, account, row)
 	if err != nil {
 		return err
 	}
@@ -2439,7 +2667,7 @@ func createAddressManager(ns walletdb.ReadWriteBucket, seed, pubPassphrase, priv
 	// database used a BIP0044 row type for it.
 	importedRow := bip0044AccountInfo(nil, nil, 0, 0, 0, 0, 0, 0,
 		ImportedAddrAccountName, initialVersion)
-	err = putAccountInfo(ns, ImportedAddrAccount, importedRow)
+	err = putBIP0044AccountInfo(ns, ImportedAddrAccount, importedRow)
 	if err != nil {
 		return err
 	}
@@ -2448,7 +2676,7 @@ func createAddressManager(ns walletdb.ReadWriteBucket, seed, pubPassphrase, priv
 	// account is derived from the legacy coin type.
 	defaultRow := bip0044AccountInfo(acctPubLegacyEnc, acctPrivLegacyEnc,
 		0, 0, 0, 0, 0, 0, defaultAccountName, initialVersion)
-	err = putAccountInfo(ns, DefaultAccountNum, defaultRow)
+	err = putBIP0044AccountInfo(ns, DefaultAccountNum, defaultRow)
 	if err != nil {
 		return err
 	}
@@ -2598,7 +2826,7 @@ func createWatchOnly(ns walletdb.ReadWriteBucket, hdPubKey string, pubPassphrase
 	// Save the information for the imported account to the database.
 	importedRow := bip0044AccountInfo(nil, nil, 0, 0, 0, 0, 0, 0,
 		ImportedAddrAccountName, initialVersion)
-	err = putAccountInfo(ns, ImportedAddrAccount, importedRow)
+	err = putBIP0044AccountInfo(ns, ImportedAddrAccount, importedRow)
 	if err != nil {
 		return err
 	}
@@ -2606,5 +2834,5 @@ func createWatchOnly(ns walletdb.ReadWriteBucket, hdPubKey string, pubPassphrase
 	// Save the information for the default account to the database.
 	defaultRow := bip0044AccountInfo(acctPubEnc, acctPrivEnc, 0, 0, 0, 0, 0, 0,
 		defaultAccountName, initialVersion)
-	return putAccountInfo(ns, DefaultAccountNum, defaultRow)
+	return putBIP0044AccountInfo(ns, DefaultAccountNum, defaultRow)
 }

@@ -783,7 +783,9 @@ func (w *Wallet) markUsedAddress(op errors.Op, dbtx walletdb.ReadWriteTx, addr u
 	if err != nil {
 		return errors.E(op, err)
 	}
-	if account == udb.ImportedAddrAccount {
+	// TODO: advance the last used address for hardened acccounts (update
+	// the rest of these calls to support that account format)
+	if account == udb.ImportedAddrAccount || w.manager.IsHardenedAccount(dbtx, account) {
 		return nil
 	}
 	props, err := w.manager.AccountProperties(ns, account)
@@ -808,6 +810,19 @@ func (w *Wallet) markUsedAddress(op errors.Op, dbtx walletdb.ReadWriteTx, addr u
 // NewExternalAddress returns an external address.
 func (w *Wallet) NewExternalAddress(ctx context.Context, account uint32, callOpts ...NextAddressCallOption) (dcrutil.Address, error) {
 	const op errors.Op = "wallet.NewExternalAddress"
+
+	// XXX this is hack!
+	var isHardened bool
+	err := walletdb.View(ctx, w.db, func(dbtx walletdb.ReadTx) error {
+		isHardened = w.manager.IsHardenedAccount(dbtx, account)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if isHardened {
+		return w.nextHardenedAddress(ctx, account, 0)
+	}
 
 	accountName, _ := w.AccountName(ctx, account)
 	return w.nextAddress(ctx, op, w.persistReturnedChild(ctx, nil),
@@ -850,13 +865,33 @@ func (w *Wallet) NewChangeAddress(ctx context.Context, account uint32) (dcrutil.
 func (w *Wallet) BIP0044BranchNextIndexes(ctx context.Context, account uint32) (extChild, intChild uint32, err error) {
 	const op errors.Op = "wallet.BIP0044BranchNextIndexes"
 
-	defer w.addressBuffersMu.Unlock()
 	w.addressBuffersMu.Lock()
-
 	acctData, ok := w.addressBuffers[account]
 	if !ok {
+		w.addressBuffersMu.Unlock()
+
+		var isHardened bool
+		err = walletdb.View(ctx, w.db, func(dbtx walletdb.ReadTx) error {
+			ns := dbtx.ReadBucket(waddrmgrNamespaceKey)
+			isHardened = w.manager.IsHardenedAccount(dbtx, account)
+			if !isHardened {
+				return nil
+			}
+			props, err := w.manager.AccountProperties(ns, account)
+			if err != nil {
+				return err
+			}
+			extChild = props.LastReturnedExternalIndex + 1
+			intChild = props.LastReturnedInternalIndex + 1
+			return nil
+		})
+		if isHardened || err != nil {
+			return
+		}
+
 		return 0, 0, errors.E(op, errors.NotExist, errors.Errorf("account %v", account))
 	}
+	defer w.addressBuffersMu.Unlock()
 	extChild = acctData.albExternal.lastUsed + 1 + acctData.albExternal.cursor
 	intChild = acctData.albInternal.lastUsed + 1 + acctData.albInternal.cursor
 	return extChild, intChild, nil
@@ -1021,4 +1056,51 @@ func deriveBranches(acctXpub *hdkeychain.ExtendedKey) (extKey, intKey *hdkeychai
 	}
 	intKey, err = acctXpub.Child(udb.InternalBranch)
 	return
+}
+
+// XXX this is ignoring gap limits. do we care? (discovery currently doesn't
+// work on the hardened accounts at all)
+func (w *Wallet) nextHardenedAddress(ctx context.Context, account, branch uint32) (dcrutil.Address, error) {
+	var addr dcrutil.Address
+	err := walletdb.Update(ctx, w.db, func(dbtx walletdb.ReadWriteTx) error {
+		ns := dbtx.ReadWriteBucket(waddrmgrNamespaceKey)
+		props, err := w.manager.AccountProperties(ns, account)
+		if err != nil {
+			return err
+		}
+		var child uint32
+		const h = hdkeychain.HardenedKeyStart
+		const mask = h - 1
+		switch {
+		case branch&mask == 0:
+			child = props.LastReturnedExternalIndex + 1 | h
+		case branch&mask == 1:
+			child = props.LastReturnedInternalIndex + 1 | h
+		default:
+			return errors.E(errors.Invalid, "branch is neither external nor interal")
+		}
+
+		extPrivKey, err := w.manager.CreateHardenedChild(dbtx, account, branch|h, child)
+		if err != nil {
+			return err
+		}
+		defer extPrivKey.Zero()
+
+		pubkey := extPrivKey.SerializedPubKey()
+		pubkeyHash := dcrutil.Hash160(pubkey)
+		apkh, err := dcrutil.NewAddressPubKeyHash(pubkeyHash, w.chainParams,
+			dcrec.STEcdsaSecp256k1)
+		if err != nil {
+			return err
+		}
+		addr = apkh
+
+		err = w.manager.RecordDerivedAddress(dbtx, account, branch&mask, child&mask, pubkey)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	return addr, err
 }

@@ -147,17 +147,10 @@ func NewCreateNewAccountCmd(account string) *CreateNewAccountCmd {
 	}
 }
 
-// CreateVotingAccountCmd is a type for handling custom marshaling and
-// unmarshalling of createvotingaccount JSON-RPC command.
-type CreateVotingAccountCmd struct {
-	Name       string
-	PubKey     string
-	ChildIndex *uint32 `jsonrpcdefault:"0"`
-}
-
-// NewCreateVotingAccountCmd creates a new CreateVotingAccountCmd.
-func NewCreateVotingAccountCmd(name, pubKey string, childIndex *uint32) *CreateVotingAccountCmd {
-	return &CreateVotingAccountCmd{name, pubKey, childIndex}
+// CreateVSPVotingAccountCmd is a type for handling custom marshaling and
+// unmarshalling of createvspvotingaccount JSON-RPC command.
+type CreateVSPVotingAccountCmd struct {
+	Name string `json:"name"`
 }
 
 // DumpPrivKeyCmd defines the dumpprivkey JSON-RPC command.
@@ -1092,7 +1085,7 @@ func init() {
 		{"createmultisig", (*CreateMultisigCmd)(nil)},
 		{"createsignature", (*CreateSignatureCmd)(nil)},
 		{"createnewaccount", (*CreateNewAccountCmd)(nil)},
-		{"createvotingaccount", (*CreateVotingAccountCmd)(nil)},
+		{"createvspvotingaccount", (*CreateVSPVotingAccountCmd)(nil)},
 		{"discoverusage", (*DiscoverUsageCmd)(nil)},
 		{"dumpprivkey", (*DumpPrivKeyCmd)(nil)},
 		{"fundrawtransaction", (*FundRawTransactionCmd)(nil)},

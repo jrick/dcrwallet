@@ -83,6 +83,10 @@ var helpDescsEnUS = map[string]string{
 	"createsignature-hashtype":              "The signature hash flags to use.",
 	"createsignature-previouspkscript":      "The the hex encoded previous output script or P2SH redeem script.",
 
+	// CreateVSPVotingAccountCmd help.
+	"createvspvotingaccount--synopsis": "Create a voting account for sharing private keys with a Voting Service Provider (VSP)",
+	"createvspvotingaccount-name":      "The name to give the new account",
+
 	// DiscoverUsageCmd help.
 	"discoverusage--synopsis":        "Perform address and/or account discovery",
 	"discoverusage-startblock":       "Hash of block to begin discovery from, or null to scan from the genesis block",

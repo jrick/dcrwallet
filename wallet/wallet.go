@@ -622,6 +622,9 @@ func (w *Wallet) watchHDAddrs(ctx context.Context, firstWatch bool, n NetworkBac
 			}
 		}
 		for acct := uint32(udb.ImportedAddrAccount + 1); acct <= lastImportedAcct; acct++ {
+			if w.manager.IsHardenedAccount(dbtx, acct) {
+				continue
+			}
 			err := loadAccount(acct)
 			if err != nil {
 				return err
@@ -801,15 +804,19 @@ func (w *Wallet) LoadActiveDataFilters(ctx context.Context, n NetworkBackend, re
 	}
 	log.Infof("Registered for transaction notifications for %v HD address(es)", hdAddrCount)
 
-	// Watch individually-imported addresses (which must each be read out of
-	// the DB).
+	// Watch individually-imported and hardened account addresses (which
+	// must each be read out of the DB).
 	abuf := make([]dcrutil.Address, 0, 256)
-	var importedAddrCount int
+	var importedAddrCount, hardenedAddrCount int
 	watchAddress := func(a udb.ManagedAddress) error {
 		addr := a.Address()
 		abuf = append(abuf, addr)
 		if len(abuf) == cap(abuf) {
-			importedAddrCount += len(abuf)
+			if a.Account() == udb.ImportedAddrAccount {
+				importedAddrCount += len(abuf)
+			} else {
+				hardenedAddrCount += len(abuf)
+			}
 			err := n.LoadTxFilter(ctx, false, abuf, nil)
 			abuf = abuf[:0]
 			return err
@@ -817,8 +824,22 @@ func (w *Wallet) LoadActiveDataFilters(ctx context.Context, n NetworkBackend, re
 		return nil
 	}
 	err = walletdb.View(ctx, w.db, func(dbtx walletdb.ReadTx) error {
-		addrmgrNs := dbtx.ReadBucket(waddrmgrNamespaceKey)
-		return w.manager.ForEachAccountAddress(addrmgrNs, udb.ImportedAddrAccount, watchAddress)
+		ns := dbtx.ReadBucket(waddrmgrNamespaceKey)
+
+		lastImported, err := w.manager.LastImportedAccount(dbtx)
+		if err != nil {
+			return err
+		}
+		for acct := uint32(udb.ImportedAddrAccount); acct <= lastImported; acct++ {
+			if acct != udb.ImportedAddrAccount && !w.manager.IsHardenedAccount(dbtx, acct) {
+				continue
+			}
+			err = w.manager.ForEachAccountAddress(ns, acct, watchAddress)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 	if err != nil {
 		return err
@@ -832,6 +853,9 @@ func (w *Wallet) LoadActiveDataFilters(ctx context.Context, n NetworkBackend, re
 	}
 	if importedAddrCount > 0 {
 		log.Infof("Registered for transaction notifications for %v imported address(es)", importedAddrCount)
+	}
+	if hardenedAddrCount > 0 {
+		log.Infof("Registered for transaction notifications for %v hardened address(es)", hardenedAddrCount)
 	}
 
 	err = walletdb.View(ctx, w.db, func(dbtx walletdb.ReadTx) error {
@@ -1921,6 +1945,51 @@ func (w *Wallet) NextAccount(ctx context.Context, name string) (uint32, error) {
 	w.NtfnServer.notifyAccountProperties(props)
 
 	return account, nil
+}
+
+func (w *Wallet) CreateVSPVotingAccount(ctx context.Context, name string) (account uint32, err error) {
+	const op errors.Op = "wallet.CreateVSPVotingAccount"
+	defer func() {
+		if err != nil {
+			err = errors.E(op, err)
+		}
+	}()
+
+	err = walletdb.Update(ctx, w.db, func(dbtx walletdb.ReadWriteTx) error {
+		var err error
+		account, err = w.manager.CreateVSPVotingAccount(dbtx, name)
+		if err != nil {
+			return err
+		}
+		key, err := w.manager.AccountExtendedPrivKey(dbtx, account)
+		if err != nil {
+			return err
+		}
+		const h = hdkeychain.HardenedKeyStart
+		gapLimit := uint32(w.gapLimit)
+		for i := uint32(0); i < gapLimit; i++ {
+			c, err := key.Child(i + h)
+			if errors.Is(err, hdkeychain.ErrInvalidChild) {
+				continue
+			}
+			if err != nil {
+				return err
+			}
+			pk := c.SerializedPubKey()
+			pkh := dcrutil.Hash160(pk)
+			addr, err := dcrutil.NewAddressPubKeyHash(pkh, w.chainParams, dcrec.STEcdsaSecp256k1)
+			if err != nil {
+				return err
+			}
+
+			// TODO: save addr
+			_ = addr
+
+			c.Zero()
+		}
+		return nil
+	})
+	return account, err
 }
 
 // AccountXpub returns a BIP0044 account's extended public key.
@@ -4660,6 +4729,9 @@ func Open(ctx context.Context, cfg *Config) (*Wallet, error) {
 			}
 		}
 		for acct := uint32(udb.ImportedAddrAccount + 1); acct <= lastImported; acct++ {
+			if w.manager.IsHardenedAccount(tx, acct) {
+				continue
+			}
 			if err := addAccountBuffers(acct); err != nil {
 				return err
 			}
