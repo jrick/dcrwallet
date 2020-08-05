@@ -9,10 +9,12 @@ import (
 	"crypto/rand"
 	"crypto/sha512"
 	"fmt"
+	"io"
 	"sync"
 
 	"decred.org/dcrwallet/errors"
 	"decred.org/dcrwallet/internal/compat"
+	"decred.org/dcrwallet/kdf"
 	"decred.org/dcrwallet/wallet/internal/snacl"
 	"decred.org/dcrwallet/wallet/walletdb"
 	"github.com/decred/dcrd/chaincfg/v3"
@@ -20,6 +22,7 @@ import (
 	"github.com/decred/dcrd/dcrutil/v3"
 	"github.com/decred/dcrd/hdkeychain/v3"
 	"github.com/decred/dcrd/wire"
+	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/ripemd160"
 )
 
@@ -139,10 +142,73 @@ type accountInfo struct {
 
 	// The account key is used to derive the branches which in turn derive
 	// the internal and external addresses.
-	// The accountKeyPriv will be nil when the address manager is locked.
+	// The accountKeyPriv will be nil when the address manager is locked,
+	// or the account is uniquely encrypted and not currently unlocked.
+	// acctKeyEncrypted is the encrypted account key, sealed using snacl
+	// when the account is protected by the wallet global passphrase,
+	// and sealed using XChaCha20Poly1305 with an Argon2id-derived key
+	// when uniquely encrypted separate from the global passphrase.
 	acctKeyEncrypted []byte
 	acctKeyPriv      *hdkeychain.ExtendedKey
 	acctKeyPub       *hdkeychain.ExtendedKey
+	uniqueKey        *kdf.Argon2idParams
+	uniquePassHash   []byte
+	uniqueKeyPrivs   map[[ripemd160.Size]byte]*secp256k1.PrivateKey
+}
+
+func argon2idKey(password []byte, k *kdf.Argon2idParams) keyType {
+	return keyType(kdf.DeriveKey(password, k, 32))
+}
+
+const xchacha20NonceSize = 24
+const poly1305TagSize = 16
+const xchacha20poly1305Overhead = xchacha20NonceSize + poly1305TagSize
+
+// improves type safety for seal and unseal funcs with a new type for
+// argon2id-derived keys.
+type keyType []byte
+
+// XXX authenticate additional data?
+func seal(rand io.Reader, key keyType, plaintext []byte) ([]byte, error) {
+	sealedLen := len(plaintext) + xchacha20poly1305Overhead
+	nonce := make([]byte, xchacha20NonceSize, sealedLen)
+	_, err := io.ReadFull(rand, nonce)
+	if err != nil {
+		return nil, errors.E(errors.IO, err)
+	}
+
+	aead, err := chacha20poly1305.NewX(key)
+	if err != nil {
+		// wrong key len; this is always a programming mistake
+		// (bad type conversion to keyType).
+		panic(err)
+	}
+	sealed := aead.Seal(nonce, nonce, plaintext, nil)
+	return sealed, nil
+}
+
+func unseal(key keyType, ciphertext []byte) ([]byte, error) {
+	aead, err := chacha20poly1305.NewX(key)
+	if err != nil {
+		// wrong key len; this is always a programming mistake
+		// (bad type conversion to keyType).
+		panic(err)
+	}
+	if len(ciphertext) < xchacha20poly1305Overhead {
+		e := errors.Errorf("ciphertext too short (len %d) "+
+			"to encode nonce and MAC tag", len(ciphertext))
+		return nil, errors.E(errors.Crypto, e)
+	}
+	nonce := ciphertext[:xchacha20NonceSize]
+	ciphertext = ciphertext[xchacha20NonceSize:]
+	plaintext, err := aead.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		// technically the ciphertext may have been tampered with, but
+		// to improve UX we report authentication failures as incorrect
+		// passphrases.
+		return nil, errors.E(errors.Passphrase)
+	}
+	return plaintext, nil
 }
 
 // AccountProperties contains properties associated with each account, such as
@@ -458,7 +524,7 @@ func (m *Manager) loadAccountInfo(ns walletdb.ReadBucket, account uint32) (*acco
 		// acctInfo.acctKeyPub intentionally left nil
 	}
 
-	if !m.locked && len(acctInfo.acctKeyEncrypted) != 0 {
+	if !m.locked && len(acctInfo.acctKeyEncrypted) != 0 && acctInfo.uniqueKey == nil {
 		// Use the crypto private key to decrypt the account private
 		// extended keys.
 		decrypted, err := m.cryptoKeyPriv.Decrypt(acctInfo.acctKeyEncrypted)
@@ -1424,6 +1490,10 @@ func (m *Manager) Unlock(ns walletdb.ReadBucket, passphrase []byte) error {
 		if len(acctInfo.acctKeyEncrypted) == 0 {
 			continue
 		}
+		if acctInfo.uniqueKey != nil {
+			// not encrypted by m.cryptoKeyPriv
+			continue
+		}
 		decrypted, err := m.cryptoKeyPriv.Decrypt(acctInfo.acctKeyEncrypted)
 		if err != nil {
 			m.lock()
@@ -1443,6 +1513,164 @@ func (m *Manager) Unlock(ns walletdb.ReadBucket, passphrase []byte) error {
 	saltedPassphrase := append(m.privPassphraseSalt[:], passphrase...)
 	m.hashedPrivPassphrase = sha512.Sum512(saltedPassphrase)
 	zero(saltedPassphrase)
+	return nil
+}
+
+func (m *Manager) UnlockAccount(dbtx walletdb.ReadTx, account uint32,
+	passphrase []byte) error {
+
+	ns := dbtx.ReadBucket(waddrmgrBucketKey)
+
+	defer m.mtx.Unlock()
+	m.mtx.Lock()
+
+	// A watching-only address manager can't be unlocked.
+	if m.watchingOnly {
+		return errors.E(errors.WatchingOnly,
+			"cannot unlock watching wallet")
+	}
+
+	acctInfo, err := m.loadAccountInfo(ns, account)
+	if err != nil {
+		return err
+	}
+	if acctInfo.uniqueKey == nil {
+		return errors.E(errors.Crypto, "account is not "+
+			"encrypted with a unique passphrase")
+	}
+	if acctInfo.acctKeyPriv != nil {
+		// already unlocked
+		// XXX check for correct passphrase,
+		// lock account when wrong, just like the normal accounts.
+		return nil
+	}
+	kdfp := acctInfo.uniqueKey
+	key := argon2idKey(passphrase, kdfp)
+	defer zero(key)
+	plaintext, err := unseal(key, acctInfo.acctKeyEncrypted)
+	defer zero(plaintext)
+	if err != nil {
+		return err
+	}
+
+	acctKeyPriv, err := hdkeychain.NewKeyFromString(string(plaintext),
+		m.chainParams)
+	if err != nil {
+		return errors.E(errors.IO, err)
+	}
+	acctInfo.acctKeyPriv = acctKeyPriv
+
+	return nil
+}
+
+func (m *Manager) LockAccount(dbtx walletdb.ReadTx, account uint32) error {
+	ns := dbtx.ReadBucket(waddrmgrBucketKey)
+
+	defer m.mtx.Unlock()
+	m.mtx.Lock()
+
+	// A watching-only address manager can't be locked.
+	if m.watchingOnly {
+		return errors.E(errors.WatchingOnly,
+			"cannot lock watching wallet")
+	}
+
+	acctInfo, err := m.loadAccountInfo(ns, account)
+	if err != nil {
+		return err
+	}
+	if acctInfo.uniqueKey == nil {
+		return errors.E(errors.Crypto, "account is not "+
+			"encrypted with a unique passphrase")
+	}
+	if acctInfo.acctKeyPriv == nil {
+		return errors.E(errors.Locked, "account is already locked")
+	}
+	acctInfo.acctKeyPriv.Zero()
+	acctInfo.acctKeyPriv = nil
+
+	// XXX what to do with returned private keys that got cached?
+
+	return nil
+}
+
+func (m *Manager) SetAccountPassphrase(dbtx walletdb.ReadWriteTx, account uint32,
+	passphrase []byte) error {
+
+	ns := dbtx.ReadWriteBucket(waddrmgrBucketKey)
+
+	defer m.mtx.Unlock()
+	m.mtx.Lock()
+
+	// A watching-only address manager stores no privkeys.
+	if m.watchingOnly {
+		return errors.E(errors.WatchingOnly,
+			"cannot set passphrase for watching wallet")
+	}
+
+	acctInfo, err := m.loadAccountInfo(ns, account)
+	if err != nil {
+		return err
+	}
+	if acctInfo.acctKeyPriv == nil {
+		return errors.E(errors.Locked, "wallet must be unlocked to "+
+			"set a unique account passphrase")
+	}
+	if acctInfo.uniqueKey != nil {
+		// Reencrypt the account privkey using new kdf parameters (and
+		// potentially a new passphrase).
+		return m.changeAccountPassphrase(ns, acctInfo, passphrase)
+	}
+
+	// Convert account privkey encryption from using the global wallet
+	// passphrase to a unique account passphrase.
+	kdfp, err := kdf.NewArgon2idParams(rand.Reader)
+	if err != nil {
+		return err
+	}
+	plaintext := []byte(acctInfo.acctKeyPriv.String())
+	key := argon2idKey(passphrase, kdfp)
+	ciphertext, err := seal(rand.Reader, key, plaintext)
+	if err != nil {
+		return err
+	}
+
+	// XXX write ciphertext and kdf params to account variables.
+	// for now, not persisting this to the db has the effect of
+	// converting to per-account encryption which doesn't persist
+	// across restarts, which is great for testing.
+
+	acctInfo.acctKeyEncrypted = ciphertext
+	acctInfo.uniqueKey = kdfp
+
+	return nil
+
+}
+
+func (m *Manager) changeAccountPassphrase(ns walletdb.ReadWriteBucket,
+	acctInfo *accountInfo, passphrase []byte) error {
+
+	// Convert account privkey encryption from using the global wallet
+	// passphrase to a unique account passphrase.
+	kdfp, err := kdf.NewArgon2idParams(rand.Reader)
+	if err != nil {
+		return err
+	}
+	plaintext := []byte(acctInfo.acctKeyPriv.String())
+	key := argon2idKey(passphrase, kdfp)
+	ciphertext, err := seal(rand.Reader, key, plaintext)
+	if err != nil {
+		return err
+	}
+
+	// XXX write ciphertext and kdf params to account variables.
+	// for now, not persisting this to the db has the effect of
+	// converting to per-account encryption which doesn't persist
+	// across restarts, which is great for testing.
+
+	acctInfo.acctKeyEncrypted = ciphertext
+	acctInfo.uniqueKey = kdfp
+
 	return nil
 }
 
