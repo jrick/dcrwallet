@@ -487,6 +487,14 @@ type ImportXpubCmd struct {
 	Xpub string `json:"xpub"`
 }
 
+// ImportXprivCmd is a type for handling custom marshaling and unmarshaling of
+// importxpriv JSON-RPC commands.
+type ImportXprivCmd struct {
+	Name              string  `json:"name"`
+	Xpriv             string  `json:"xpub"`
+	AccountPassphrase *string `json:"accountpassphrase"`
+}
+
 // ListAccountsCmd defines the listaccounts JSON-RPC command.
 type ListAccountsCmd struct {
 	MinConf *int `jsonrpcdefault:"1"`
@@ -1135,6 +1143,7 @@ func init() {
 		{"importprivkey", (*ImportPrivKeyCmd)(nil)},
 		{"importscript", (*ImportScriptCmd)(nil)},
 		{"importxpub", (*ImportXpubCmd)(nil)},
+		{"importxpriv", (*ImportXprivCmd)(nil)},
 		{"listaccounts", (*ListAccountsCmd)(nil)},
 		{"listaddresstransactions", (*ListAddressTransactionsCmd)(nil)},
 		{"listalltransactions", (*ListAllTransactionsCmd)(nil)},

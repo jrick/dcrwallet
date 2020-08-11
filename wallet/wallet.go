@@ -3658,6 +3658,85 @@ func (w *Wallet) ImportXpubAccount(ctx context.Context, name string, xpub *hdkey
 	return nil
 }
 
+// ImportXprivAccount creates a new account from an arbitrary extended private
+// key.  If accountPassphrase has positive length, the account's private keys
+// are encrypted uniquely with this passphrase, and the Manager does not need to
+// be unlocked.  The Manager must be unlocked to record an xpriv account without
+// a unique passphrase.
+func (w *Wallet) ImportXprivAccount(ctx context.Context, name string,
+	xpub *hdkeychain.ExtendedKey, accountPassphrase []byte) error {
+
+	const op errors.Op = "wallet.ImportXprivAccount"
+	if xpub.IsPrivate() {
+		return errors.E(op, "extended key must be an xpriv")
+	}
+
+	// Check for an unlocked wallet and remain locked for the duration of
+	// the call when the private keys will be encrypted using the global
+	// private crypto key.
+	if len(accountPassphrase) == 0 {
+		heldUnlock, err := w.holdUnlock()
+		if err != nil {
+			return errors.E(op, err)
+		}
+		defer heldUnlock.release()
+	}
+
+	extKey, intKey, err := deriveBranches(xpub)
+	if err != nil {
+		return errors.E(op, err)
+	}
+
+	if n, err := w.NetworkBackend(); err == nil {
+		extAddrs, err := deriveChildAddresses(extKey, 0, w.gapLimit, w.chainParams)
+		if err != nil {
+			return errors.E(op, err)
+		}
+		intAddrs, err := deriveChildAddresses(intKey, 0, w.gapLimit, w.chainParams)
+		if err != nil {
+			return errors.E(op, err)
+		}
+		watch := append(extAddrs, intAddrs...)
+		err = n.LoadTxFilter(ctx, false, watch, nil)
+		if err != nil {
+			return errors.E(op, err)
+		}
+	}
+
+	var account uint32
+	err = walletdb.Update(ctx, w.db, func(dbtx walletdb.ReadWriteTx) error {
+		ns := dbtx.ReadWriteBucket(waddrmgrNamespaceKey)
+		err := w.manager.ImportXprivAccount(ns, name, xpub,
+			accountPassphrase)
+		if err != nil {
+			return err
+		}
+		account, err = w.manager.LookupAccount(ns, name)
+		return err
+	})
+	if err != nil {
+		return errors.E(op, err)
+	}
+
+	defer w.addressBuffersMu.Unlock()
+	w.addressBuffersMu.Lock()
+	albExternal := addressBuffer{
+		branchXpub:  extKey,
+		lastUsed:    ^uint32(0),
+		cursor:      0,
+		lastWatched: w.gapLimit - 1,
+	}
+	albInternal := albExternal
+	albInternal.branchXpub = intKey
+	w.addressBuffers[account] = &bip0044AccountData{
+		xpub:        xpub,
+		albExternal: albExternal,
+		albInternal: albInternal,
+	}
+
+	return nil
+}
+
 // StakeInfoData carries counts of ticket states and other various stake data.
 type StakeInfoData struct {
 	BlockHeight  int64

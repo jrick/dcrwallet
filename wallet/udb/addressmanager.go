@@ -1323,6 +1323,94 @@ func (m *Manager) ImportScript(ns walletdb.ReadWriteBucket, script []byte) (Mana
 	return newScriptAddress(m, ImportedAddrAccount, scriptHash, script)
 }
 
+// ImportXprivAccount creates a new account from an arbitrary extended private
+// key.  If accountPassphrase has positive length, the account's private keys
+// are encrypted uniquely with this passphrase, and the Manager does not need to
+// be unlocked.  The Manager must be unlocked to record an xpriv account without
+// a unique passphrase.
+func (m *Manager) ImportXprivAccount(ns walletdb.ReadWriteBucket, name string, xpriv *hdkeychain.ExtendedKey, accountPassphrase []byte) error {
+	defer m.mtx.Unlock()
+	m.mtx.Lock()
+
+	// Watching wallets do not store privkeys
+	if m.watchingOnly {
+		return errors.E(errors.WatchingOnly)
+	}
+
+	// Validate account name
+	if err := ValidateAccountName(name); err != nil {
+		return err
+	}
+
+	// There may not be an account by the same name
+	if _, err := fetchAccountByName(ns, name); err == nil {
+		return errors.E(errors.Exist, "account name in use")
+	}
+
+	// Reserve next imported account number
+	account, err := fetchLastImportedAccount(ns)
+	if err != nil {
+		return err
+	}
+	account++
+	if account < MaxAccountNum {
+		return errors.E(errors.Invalid, "exhausted possible imported accounts")
+	}
+
+	var acctPubEnc, acctPrivEnc []byte
+	var kdfp *kdf.Argon2idParams
+
+	// Encrypt the account extended pubkey.
+	xpub := xpriv.Neuter()
+	apes := []byte(xpub.String())
+	acctPubEnc, err = m.cryptoKeyPub.Encrypt(apes)
+	if err != nil {
+		err := errors.Errorf("encrypt account pubkey: %v", err)
+		return errors.E(errors.Crypto, err)
+	}
+
+	// Encrypt the account xpriv with either the global snacl crypto keys
+	// (requires an unlocked wallet) or a newly-derived encryption key when
+	// creating the imported account with an individual passphrase.
+	apes = []byte(xpriv.String())
+	defer zero(apes)
+	if len(accountPassphrase) == 0 {
+		if !m.locked {
+			return errors.E(errors.Locked)
+		}
+		acctPrivEnc, err = m.cryptoKeyPriv.Encrypt(apes)
+	} else {
+		kdfp, err = kdf.NewArgon2idParams(rand.Reader)
+		if err != nil {
+			return err
+		}
+		key := argon2idKey(accountPassphrase, kdfp)
+		acctPrivEnc, err = seal(rand.Reader, key, apes)
+	}
+	if err != nil {
+		err := errors.Errorf("encrypt account privkey: %v", err)
+		return errors.E(errors.Crypto, err)
+	}
+
+	// We have the encrypted account extended keys, so save them to the
+	// database
+	row := bip0044AccountInfo(acctPubEnc, acctPrivEnc, 0, 0,
+		^uint32(0), ^uint32(0), ^uint32(0), ^uint32(0), name, DBVersion)
+	row.uniqueKey = kdfp
+	// XXX write encrypted privkey and kdf params to account variables.
+	err = putBIP0044AccountInfo(ns, account, row)
+	if err != nil {
+		return err
+	}
+
+	// Save last imported account metadata
+	if err := putLastImportedAccount(ns, account); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (m *Manager) ImportXpubAccount(ns walletdb.ReadWriteBucket, name string, xpub *hdkeychain.ExtendedKey) error {
 	defer m.mtx.Unlock()
 	m.mtx.Lock()

@@ -107,6 +107,7 @@ var handlers = map[string]handler{
 	"importprivkey":           {fn: (*Server).importPrivKey},
 	"importscript":            {fn: (*Server).importScript},
 	"importxpub":              {fn: (*Server).importXpub},
+	"importxpriv":              {fn: (*Server).importXpriv},
 	"listaccounts":            {fn: (*Server).listAccounts},
 	"listlockunspent":         {fn: (*Server).listLockUnspent},
 	"listreceivedbyaccount":   {fn: (*Server).listReceivedByAccount},
@@ -1555,6 +1556,31 @@ func (s *Server) importXpub(ctx context.Context, icmd interface{}) (interface{},
 	}
 
 	return nil, w.ImportXpubAccount(ctx, cmd.Name, xpub)
+}
+
+func (s *Server) importXpriv(ctx context.Context, icmd interface{}) (interface{}, error) {
+	cmd := icmd.(*types.ImportXprivCmd)
+	w, ok := s.walletLoader.LoadedWallet()
+	if !ok {
+		return nil, errUnloadedWallet
+	}
+
+	xpriv, err := hdkeychain.NewKeyFromString(cmd.Xpriv, w.ChainParams())
+	if err != nil {
+		return nil, err
+	}
+	if !xpriv.IsPrivate() {
+		return nil, rpcErrorf(dcrjson.ErrRPCInvalidParams.Code,
+			"parameter is an extended public key")
+	}
+	passphrase := []byte(*cmd.AccountPassphrase)
+	defer func() {
+		for i := range passphrase {
+			passphrase[i] = 0
+		}
+	}()
+
+	return nil, w.ImportXprivAccount(ctx, cmd.Name, xpriv, passphrase)
 }
 
 // createNewAccount handles a createnewaccount request by creating and
