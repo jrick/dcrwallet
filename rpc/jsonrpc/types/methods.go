@@ -876,7 +876,8 @@ func NewSendToMultiSigCmd(fromaccount string, amount float64, pubkeys []string,
 
 // SendToTreasuryCmd defines the sendtotreasury JSON-RPC command.
 type SendToTreasuryCmd struct {
-	Amount float64
+	Amount  float64
+	Account *string
 }
 
 // NewSendToTreasurymd returns a new instance which can be used to issue a

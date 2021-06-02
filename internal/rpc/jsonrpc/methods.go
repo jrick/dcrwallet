@@ -3775,8 +3775,18 @@ func (s *Server) sendToTreasury(ctx context.Context, icmd interface{}) (interfac
 		return nil, rpcErrorf(dcrjson.ErrRPCInvalidParameter, "negative amount")
 	}
 
-	// sendtotreasury always spends from the default account.
-	return s.sendAmountToTreasury(ctx, w, amt, udb.DefaultAccountNum, 1)
+	var account uint32
+	if cmd.Account != nil {
+		account, err = w.AccountNumber(ctx, *cmd.Account)
+		if err != nil {
+			if errors.Is(err, errors.NotExist) {
+				return nil, errAccountNotFound
+			}
+			return nil, err
+		}
+	}
+
+	return s.sendAmountToTreasury(ctx, w, amt, account, 1)
 }
 
 // transaction spending treasury balance.

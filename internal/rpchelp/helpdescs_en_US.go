@@ -624,6 +624,7 @@ var helpDescsEnUS = map[string]string{
 	// SendToTreasuryCmd help.
 	"sendtotreasury--synopsis": "Send decred to treasury",
 	"sendtotreasury-amount":    "Amount to send to treasury",
+	"sendtotreasury-account":   "Account to spend from",
 	"sendtotreasury--result0":  "The transaction hash of the sent transaction",
 
 	// SetAccountPassphraseCmd help.
