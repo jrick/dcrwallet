@@ -45,6 +45,7 @@ type Loader struct {
 	allowHighFees           bool
 	manualTickets           bool
 	relayFee                dcrutil.Amount
+	mixSplitLimit           int
 
 	mu sync.Mutex
 
@@ -68,7 +69,7 @@ type DialFunc func(ctx context.Context, network, addr string) (net.Conn, error)
 
 // NewLoader constructs a Loader.
 func NewLoader(chainParams *chaincfg.Params, dbDirPath string, stakeOptions *StakeOptions, gapLimit uint32,
-	allowHighFees bool, relayFee dcrutil.Amount, accountGapLimit int, disableCoinTypeUpgrades bool, manualTickets bool) *Loader {
+	allowHighFees bool, relayFee dcrutil.Amount, accountGapLimit int, disableCoinTypeUpgrades bool, manualTickets bool, mixSplitLimit int) *Loader {
 
 	return &Loader{
 		chainParams:             chainParams,
@@ -80,6 +81,7 @@ func NewLoader(chainParams *chaincfg.Params, dbDirPath string, stakeOptions *Sta
 		allowHighFees:           allowHighFees,
 		manualTickets:           manualTickets,
 		relayFee:                relayFee,
+		mixSplitLimit:           mixSplitLimit,
 	}
 }
 
@@ -189,6 +191,7 @@ func (l *Loader) CreateWatchingOnlyWallet(ctx context.Context, extendedPubKey st
 		ManualTickets:           l.manualTickets,
 		AllowHighFees:           l.allowHighFees,
 		RelayFee:                l.relayFee,
+		MixSplitLimit:           l.mixSplitLimit,
 		Params:                  l.chainParams,
 	}
 	w, err = wallet.Open(ctx, cfg)
