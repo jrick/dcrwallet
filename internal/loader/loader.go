@@ -344,6 +344,7 @@ func (l *Loader) OpenExistingWallet(ctx context.Context, pubPassphrase []byte) (
 		ManualTickets:           l.manualTickets,
 		AllowHighFees:           l.allowHighFees,
 		RelayFee:                l.relayFee,
+		MixSplitLimit:           l.mixSplitLimit,
 		Params:                  l.chainParams,
 	}
 	w, err = wallet.Open(ctx, cfg)
