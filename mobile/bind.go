@@ -457,7 +457,7 @@ func (w *Wallet) Unbundle(ctx *Context, file string, notifier UnbundleProgressNo
 		header := new(wire.BlockHeader)
 		err := header.Deserialize(z)
 		if err == io.EOF {
-			return nil
+			break
 		}
 		if err != nil {
 			return err
