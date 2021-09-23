@@ -34,6 +34,7 @@ require (
 	github.com/jrick/wsrpc/v2 v2.3.4
 	go.etcd.io/bbolt v1.3.5
 	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
+	golang.org/x/mobile v0.0.0-20200629153529-33b80540585f
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	google.golang.org/grpc v1.32.0
 	google.golang.org/protobuf v1.23.0
