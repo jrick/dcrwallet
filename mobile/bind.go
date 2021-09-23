@@ -432,7 +432,7 @@ type UnbundleProgressNotifier interface {
 	UnbundleProgress(lastHeaderHeight int32, lastHeaderTime int64)
 }
 
-// Unbundle decompresses block headers and version 1 cfilters from a file
+// Unbundle decompresses block headers and version 2 cfilters from a file
 // and connects them to the wallet's main chain.
 //
 // If notifier is non-nil, its methods are called to notify progress.
