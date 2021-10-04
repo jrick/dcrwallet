@@ -1,4 +1,5 @@
-//+build mobile
+//go:build mobile
+// +build mobile
 
 package main
 
