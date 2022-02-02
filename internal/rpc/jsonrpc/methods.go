@@ -90,6 +90,7 @@ var handlers = map[string]handler{
 	"accountunlocked":         {fn: (*Server).accountUnlocked},
 	"addmultisigaddress":      {fn: (*Server).addMultiSigAddress},
 	"addtransaction":          {fn: (*Server).addTransaction},
+	"auditgaps":               {fn: (*Server).auditGaps},
 	"auditreuse":              {fn: (*Server).auditReuse},
 	"consolidate":             {fn: (*Server).consolidate},
 	"createmultisig":          {fn: (*Server).createMultiSig},
@@ -560,6 +561,136 @@ func (s *Server) auditReuse(ctx context.Context, icmd interface{}) (interface{},
 		}
 	}
 	return reuse, nil
+}
+
+// auditGaps ...
+func (s *Server) auditGaps(ctx context.Context, icmd interface{}) (interface{}, error) {
+	cmd := icmd.(*types.AuditGapsCmd)
+	w, ok := s.walletLoader.LoadedWallet()
+	if !ok {
+		return nil, errUnloadedWallet
+	}
+
+	account, err := w.AccountNumber(ctx, cmd.Account)
+	if err != nil {
+		return nil, err
+	}
+	internal := cmd.Branch == 1
+
+	var props *wallet.AccountProperties
+	accts, err := w.Accounts(ctx)
+	for i, p := range accts.Accounts {
+		if p.AccountNumber == account {
+			props = &accts.Accounts[i].AccountProperties
+			break
+		}
+	}
+
+	lastReturned := props.LastReturnedExternalIndex
+	if internal {
+		lastReturned = props.LastReturnedInternalIndex
+	}
+
+	used := make(map[string]uint32)
+	params := w.ChainParams()
+	err = w.GetTransactions(ctx, func(b *wallet.Block) (bool, error) {
+		for _, tx := range b.Transactions {
+			for _, out := range tx.MyOutputs {
+				if out.Account != account {
+					continue
+				}
+				if internal == out.Internal {
+					// mark as used, lookup child index later
+					addr := out.Address.String()
+					if child, ok := used[addr]; !ok || child == ^uint32(0) {
+						used[addr] = ^uint32(0)
+					}
+				}
+			}
+			if tx.Type != wallet.TransactionTypeTicketPurchase {
+				continue
+			}
+			ticket := new(wire.MsgTx)
+			err := ticket.Deserialize(bytes.NewReader(tx.Transaction))
+			if err != nil {
+				return false, err
+			}
+			for i := 1; i < len(ticket.TxOut); i += 2 { // iterate commitments
+				out := ticket.TxOut[i]
+				addr, err := stake.AddrFromSStxPkScrCommitment(out.PkScript, params)
+				if err != nil {
+					return false, err
+				}
+				ka, err := w.KnownAddress(ctx, addr)
+				if err != nil {
+					if errors.Is(err, errors.NotExist) {
+						continue
+					}
+					return false, err
+				}
+				a, ok := ka.(wallet.BIP0044Address)
+				if !ok {
+					continue
+				}
+				acct, branch, child := a.Path()
+				if account == acct && (internal == (branch == 1)) {
+					addr := addr.String()
+					used[addr] = child
+				}
+			}
+		}
+		return false, nil
+	}, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	var usedChildren []uint32
+	for s, child := range used {
+		if child != ^uint32(0) {
+			usedChildren = append(usedChildren, child)
+			continue
+		}
+		addr, err := stdaddr.DecodeAddress(s, params)
+		if err != nil {
+			return nil, err
+		}
+		ka, err := w.KnownAddress(ctx, addr)
+		if err != nil {
+			return nil, err
+		}
+		a, ok := ka.(wallet.BIP0044Address)
+		if !ok {
+			return nil, fmt.Errorf("umm")
+		}
+		_, _, child := a.Path()
+		used[s] = child
+	}
+	sort.Slice(usedChildren, func(i, j int) bool {
+		return usedChildren[i] < usedChildren[j]
+	})
+	type gap struct {
+		Start uint32 `json:"start"`
+		Size  uint32 `json:"size"`
+	}
+	var gaps []gap
+	c := uint32(0)
+	for i := 0; i < len(usedChildren); i++ {
+		size := usedChildren[i] - c
+		if size >= 20 {
+			gaps = append(gaps, gap{
+				Start: c,
+				Size:  size,
+			})
+		}
+		c = usedChildren[i]
+	}
+	if lastGap := lastReturned - c; lastReturned != ^uint32(0) && lastGap >= 20 {
+		gaps = append(gaps, gap{
+			Start: c,
+			Size:  lastGap,
+		})
+	}
+	return gaps, nil
 }
 
 // consolidate handles a consolidate request by returning attempting to compress

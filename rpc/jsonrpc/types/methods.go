@@ -87,6 +87,11 @@ type AddTransactionCmd struct {
 	Transaction string `json:"transaction"`
 }
 
+type AuditGapsCmd struct {
+	Account string `json:"account"`
+	Branch  uint32 `json:"branch"`
+}
+
 // AuditReuseCmd defines the auditreuse JSON-RPC command.
 //
 // This method returns an object keying reused addresses to two or more outputs
@@ -1202,6 +1207,7 @@ func init() {
 		{"accountunlocked", (*AccountUnlockedCmd)(nil)},
 		{"addmultisigaddress", (*AddMultisigAddressCmd)(nil)},
 		{"addtransaction", (*AddTransactionCmd)(nil)},
+		{"auditgaps", (*AuditGapsCmd)(nil)},
 		{"auditreuse", (*AuditReuseCmd)(nil)},
 		{"consolidate", (*ConsolidateCmd)(nil)},
 		{"createmultisig", (*CreateMultisigCmd)(nil)},
