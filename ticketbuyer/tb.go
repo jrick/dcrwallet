@@ -241,7 +241,7 @@ func (tb *TB) buy(ctx context.Context, passphrase []byte, tip *wire.BlockHeader,
 
 	// Read config
 	account := cfg.Account
-	maintain := cfg.Maintain
+	//maintain := cfg.Maintain
 	votingAddr := cfg.VotingAddr
 	poolFeeAddr := cfg.PoolFeeAddr
 	poolFees := cfg.PoolFees
