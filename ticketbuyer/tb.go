@@ -255,26 +255,27 @@ func (tb *TB) buy(ctx context.Context, passphrase []byte, tip *wire.BlockHeader,
 	changeAccount := cfg.ChangeAccount
 
 	// Determine how many tickets to buy
-	bal, err := w.AccountBalance(ctx, account, minconf)
-	if err != nil {
-		return err
-	}
-	spendable := bal.Spendable
+	//bal, err := w.AccountBalance(ctx, account, minconf)
+	//if err != nil {
+	//	return err
+	//}
+	//spendable := bal.Spendable
 
-	if spendable < maintain {
-		log.Debugf("Skipping purchase: low available balance")
-		return nil
-	}
-	spendable -= maintain
+	//if spendable < maintain {
+	//	log.Debugf("Skipping purchase: low available balance")
+	//	return nil
+	//}
+	//spendable -= maintain
 	sdiff, err := w.NextStakeDifficultyAfterHeader(ctx, tip)
 	if err != nil {
 		return err
 	}
-	buy := int(spendable / sdiff)
-	if buy == 0 {
-		log.Debugf("Skipping purchase: low available balance")
-		return nil
-	}
+	buy := int(w.ChainParams().MaxFreshStakePerBlock)
+	//buy := int(spendable / sdiff)
+	//if buy == 0 {
+	//	log.Debugf("Skipping purchase: low available balance")
+	//	return nil
+	//}
 	max := int(w.ChainParams().MaxFreshStakePerBlock)
 	if buy > max {
 		buy = max

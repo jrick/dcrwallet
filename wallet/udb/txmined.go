@@ -3095,6 +3095,10 @@ func (s *Store) MakeInputSource(dbtx walletdb.ReadTx, account uint32, minConf,
 		remainingKeys     []remainingKey
 	)
 
+	if minConf != 0 {
+		log.Debugf("Unspent bucket k/v count: %v", numUnspent)
+	}
+
 	skip := func(k []byte) bool {
 		if existsRawUnminedInput(ns, k) != nil {
 			// Output is spent by an unmined transaction.
@@ -3123,6 +3127,9 @@ func (s *Store) MakeInputSource(dbtx walletdb.ReadTx, account uint32, minConf,
 					seen[string(k)] = struct{}{}
 				}
 			} else if remainingKeys == nil {
+				if randTries > 0 {
+					log.Debugf("Abandoned random UTXO selection attempts after %v tries", randTries)
+				}
 				// All remaining keys not discovered by the
 				// random search (if any was performed) are read
 				// into memory and shuffled, and then iterated
