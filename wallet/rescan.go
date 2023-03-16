@@ -7,6 +7,8 @@ package wallet
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"time"
 
 	"decred.org/dcrwallet/v2/errors"
@@ -155,10 +157,20 @@ func (f *RescanFilter) RemoveUnspentOutPoint(op *wire.OutPoint) {
 func (w *Wallet) SaveRescanned(ctx context.Context, hash *chainhash.Hash, txs []*wire.MsgTx) error {
 	const op errors.Op = "wallet.SaveRescanned"
 
+	fi, err := os.Open("rescan-transactions")
+	if err != nil {
+		panic(err)
+	}
+	for i := range txs {
+		txHash := txs[i].TxHash()
+		fmt.Fprintln(fi, txHash.String())
+	}
+	fi.Close()
+
 	defer w.lockedOutpointMu.Unlock()
 	w.lockedOutpointMu.Lock()
 
-	err := walletdb.Update(ctx, w.db, func(dbtx walletdb.ReadWriteTx) error {
+	err = walletdb.Update(ctx, w.db, func(dbtx walletdb.ReadWriteTx) error {
 		txmgrNs := dbtx.ReadWriteBucket(wtxmgrNamespaceKey)
 		blockMeta, err := w.txStore.GetBlockMetaForHash(txmgrNs, hash)
 		if err != nil {
@@ -193,6 +205,12 @@ func (w *Wallet) SaveRescanned(ctx context.Context, hash *chainhash.Hash, txs []
 // the heights the rescan has completed through, starting with the start height.
 func (w *Wallet) rescan(ctx context.Context, n NetworkBackend,
 	startHash *chainhash.Hash, height int32, p chan<- RescanProgress) error {
+
+	fi, err := os.Create("rescan-transactions") // truncate
+	if err != nil {
+		panic(err)
+	}
+	fi.Close()
 
 	blockHashStorage := make([]chainhash.Hash, maxBlocksPerRescan)
 	rescanFrom := *startHash

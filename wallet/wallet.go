@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"os"
 	"runtime"
 	"sort"
 	"strconv"
@@ -1034,7 +1035,17 @@ func (w *Wallet) watchHDAddrs(ctx context.Context, firstWatch bool, n NetworkBac
 	watchAddrs := make(chan []stdaddr.Address, runtime.NumCPU())
 	watchError := make(chan error)
 	go func() {
+		fi, err := os.Create("initial-watched-addrs")
+		if err != nil {
+			panic(err)
+		}
+		defer fi.Close()
+
 		for addrs := range watchAddrs {
+			for i := range addrs {
+				fmt.Fprintln(fi, addrs[i].String())
+			}
+
 			count += uint64(len(addrs))
 			err := n.LoadTxFilter(ctx, false, addrs, nil)
 			if err != nil {
@@ -1148,18 +1159,33 @@ func (w *Wallet) LoadActiveDataFilters(ctx context.Context, n NetworkBackend, re
 		}
 	}
 
+	fi2, err := os.Create("initial-watched-utxos")
+	if err != nil {
+		panic(err)
+	}
+	defer fi2.Close()
+
 	buf := make([]wire.OutPoint, 0, 64)
 	defer func() {
 		if len(buf) > 0 && err == nil {
+			for i := range buf {
+				fmt.Fprintln(fi2, buf[i].String())
+			}
+
 			err = n.LoadTxFilter(ctx, false, nil, buf)
 			if err != nil {
 				return
 			}
 		}
 	}()
+
 	watchOutPoint := func(op *wire.OutPoint) (err error) {
 		buf = append(buf, *op)
 		if len(buf) == cap(buf) {
+			for i := range buf {
+				fmt.Fprintln(fi2, buf[i].String())
+			}
+
 			err = n.LoadTxFilter(ctx, false, nil, buf)
 			buf = buf[:0]
 		}
@@ -1176,11 +1202,23 @@ func (w *Wallet) LoadActiveDataFilters(ctx context.Context, n NetworkBackend, re
 	// the DB).
 	abuf := make([]stdaddr.Address, 0, 256)
 	var importedAddrCount int
+
+	fi, err := os.Open("initial-watched-addrs")
+	if err != nil {
+		panic(err)
+	}
+	defer fi.Close()
+
 	watchAddress := func(a udb.ManagedAddress) error {
 		addr := a.Address()
 		abuf = append(abuf, addr)
 		if len(abuf) == cap(abuf) {
 			importedAddrCount += len(abuf)
+
+			for i := range abuf {
+				fmt.Fprintln(fi, abuf[i].String())
+			}
+
 			err := n.LoadTxFilter(ctx, false, abuf, nil)
 			abuf = abuf[:0]
 			return err
@@ -1196,6 +1234,11 @@ func (w *Wallet) LoadActiveDataFilters(ctx context.Context, n NetworkBackend, re
 	}
 	if len(abuf) != 0 {
 		importedAddrCount += len(abuf)
+
+		for i := range abuf {
+			fmt.Fprintln(fi, abuf[i].String())
+		}
+
 		err := n.LoadTxFilter(ctx, false, abuf, nil)
 		if err != nil {
 			return err
@@ -5306,7 +5349,9 @@ func CreateWatchOnly(ctx context.Context, db DB, extendedPubKey string, pubPass 
 
 // decodeStakePoolColdExtKey decodes the string of stake pool addresses
 // to search incoming tickets for. The format for the passed string is:
-//   "xpub...:end"
+//
+//	"xpub...:end"
+//
 // where xpub... is the extended public key and end is the last
 // address index to scan to, exclusive. Effectively, it returns the derived
 // addresses for this public key for the address indexes [0,end). The branch
