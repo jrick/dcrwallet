@@ -161,11 +161,17 @@ func (w *Wallet) SaveRescanned(ctx context.Context, hash *chainhash.Hash, txs []
 	if err != nil {
 		panic(err)
 	}
+	fi2, err := os.Open("rescan-prev-outpoints")
 	for i := range txs {
 		txHash := txs[i].TxHash()
 		fmt.Fprintln(fi, txHash.String())
+		for j := range txs[i].TxIn {
+			prevOut := txs[i].TxIn[j].PreviousOutPoint
+			fmt.Fprintln(fi2, prevOut)
+		}
 	}
 	fi.Close()
+	fi2.Close()
 
 	defer w.lockedOutpointMu.Unlock()
 	w.lockedOutpointMu.Lock()
@@ -207,6 +213,11 @@ func (w *Wallet) rescan(ctx context.Context, n NetworkBackend,
 	startHash *chainhash.Hash, height int32, p chan<- RescanProgress) error {
 
 	fi, err := os.Create("rescan-transactions") // truncate
+	if err != nil {
+		panic(err)
+	}
+	fi.Close()
+	fi, err = os.Create("rescan-prev-outpoints") // truncate
 	if err != nil {
 		panic(err)
 	}
