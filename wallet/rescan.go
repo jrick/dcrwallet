@@ -157,11 +157,11 @@ func (f *RescanFilter) RemoveUnspentOutPoint(op *wire.OutPoint) {
 func (w *Wallet) SaveRescanned(ctx context.Context, hash *chainhash.Hash, txs []*wire.MsgTx) error {
 	const op errors.Op = "wallet.SaveRescanned"
 
-	fi, err := os.Open("rescan-transactions")
+	fi, err := os.OpenFile("rescan-transactions", os.O_RDWR|os.O_APPEND, 0)
 	if err != nil {
 		panic(err)
 	}
-	fi2, err := os.Open("rescan-prev-outpoints")
+	fi2, err := os.OpenFile("rescan-prev-outpoints", os.O_RDWR|os.O_APPEND, 0)
 	for i := range txs {
 		txHash := txs[i].TxHash()
 		fmt.Fprintln(fi, txHash.String())
