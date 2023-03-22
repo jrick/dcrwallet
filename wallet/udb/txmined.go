@@ -1137,6 +1137,17 @@ type outpoint struct {
 
 var rescanDebug = make(map[outpoint]struct{})
 
+func isDebuggedUnspentKey(k []byte) (bool, outpoint) {
+	if len(k) != 36 {
+		return false, outpoint{}
+	}
+	var op outpoint
+	copy(op.hash[:], k)
+	op.index = byteOrder.Uint32(k[32:])
+	_, debug := rescanDebug[op]
+	return debug, op
+}
+
 func init() {
 	fi, err := os.Open("rescan-debug-outpoints")
 	if err != nil {
@@ -2448,6 +2459,11 @@ func (s *Store) RandomUTXO(dbtx walletdb.ReadTx, minConf, syncHeight int32) (*Cr
 	if k == nil || err != nil {
 		return nil, err
 	}
+
+	if debug, op := isDebuggedUnspentKey(k); debug {
+		log.Infof("UTXO debug: %v:%v returned as unspent outpoint by RandomUTXO", &op.hash, op.index)
+	}
+
 	var op wire.OutPoint
 	var block Block
 	err = readCanonicalOutPoint(k, &op)
@@ -3178,6 +3194,11 @@ func (s *Store) MakeInputSource(dbtx walletdb.ReadTx, account uint32, minConf,
 				if k != nil {
 					seen[string(k)] = struct{}{}
 				}
+
+				if debug, op := isDebuggedUnspentKey(k); debug {
+					log.Infof("UTXO debug: %v:%v returned as unspent outpoint by MakeInputSource (random lookup)", &op.hash, op.index)
+				}
+
 			} else if remainingKeys == nil {
 				if randTries > 0 {
 					log.Debugf("Abandoned random UTXO selection attempts after %v tries", randTries)
@@ -3248,6 +3269,10 @@ func (s *Store) MakeInputSource(dbtx walletdb.ReadTx, account uint32, minConf,
 				next := remainingKeys[0]
 				remainingKeys = remainingKeys[1:]
 				k, unmined = next.k, next.unmined
+
+				if debug, op := isDebuggedUnspentKey(k); debug {
+					log.Infof("UTXO debug: %v:%v returned as unspent outpoint by MakeInputSource (fallback lookup)", &op.hash, op.index)
+				}
 			}
 			if !unmined {
 				v = ns.NestedReadBucket(bucketUnspent).Get(k)
