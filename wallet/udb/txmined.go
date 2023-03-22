@@ -9,9 +9,14 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/binary"
-	"fmt"
 	"math/bits"
 	"time"
+
+	"bufio"
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
 
 	"decred.org/dcrwallet/v2/errors"
 	"decred.org/dcrwallet/v2/internal/compat"
@@ -1125,6 +1130,42 @@ func (s *Store) moveMinedTx(ns walletdb.ReadWriteBucket, addrmgrNs walletdb.Read
 	return deleteRawUnmined(ns, rec.Hash[:])
 }
 
+type outpoint struct {
+	hash  chainhash.Hash
+	index uint32
+}
+
+var rescanDebug = make(map[outpoint]struct{})
+
+func init() {
+	fi, err := os.Open("rescan-debug-outpoints")
+	if err != nil {
+		panic(err)
+	}
+	defer fi.Close()
+
+	scanner := bufio.NewScanner(fi)
+	for scanner.Scan() {
+		text := scanner.Text()
+		colon := strings.Index(text, ":")
+		hash, err := chainhash.NewHashFromStr(text[:colon])
+		if err != nil {
+			panic(err)
+		}
+		index, err := strconv.ParseUint(text[colon+1:], 10, 32)
+		if err != nil {
+			panic(err)
+		}
+		rescanDebug[outpoint{
+			hash:  *hash,
+			index: uint32(index),
+		}] = struct{}{}
+	}
+	if err := scanner.Err(); err != nil {
+		panic(err)
+	}
+}
+
 // InsertMinedTx inserts a new transaction record for a mined transaction into
 // the database.  The block header must have been previously saved.  If the
 // exact transaction is already saved as an unmined transaction, it is moved to
@@ -1170,6 +1211,17 @@ func (s *Store) InsertMinedTx(dbtx walletdb.ReadWriteTx, rec *TxRecord, blockHas
 
 	for i, input := range rec.MsgTx.TxIn {
 		unspentKey, credKey := existsUnspent(ns, &input.PreviousOutPoint)
+
+		op := &input.PreviousOutPoint
+		_, debug := rescanDebug[outpoint{
+			hash:  op.Hash,
+			index: op.Index,
+		}]
+		if debug {
+			log.Infof("Rescan debug %v (type %v) spending %v:%v:%v -- nilUnspentKey=%v nilCredKey=%v blockInvalidated=%v",
+				&rec.Hash, txType, &op.Hash, op.Index, op.Tree, unspentKey == nil, credKey == nil, invalidated)
+		}
+
 		if credKey == nil {
 			// Debits for unmined transactions are not explicitly
 			// tracked.  Instead, all previous outputs spent by any

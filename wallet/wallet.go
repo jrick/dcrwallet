@@ -12,7 +12,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"os"
 	"runtime"
 	"sort"
 	"strconv"
@@ -20,6 +19,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	//"os"
 
 	"decred.org/dcrwallet/v2/deployments"
 	"decred.org/dcrwallet/v2/errors"
@@ -1035,16 +1036,20 @@ func (w *Wallet) watchHDAddrs(ctx context.Context, firstWatch bool, n NetworkBac
 	watchAddrs := make(chan []stdaddr.Address, runtime.NumCPU())
 	watchError := make(chan error)
 	go func() {
-		fi, err := os.Create("initial-watched-addrs")
-		if err != nil {
-			panic(err)
-		}
-		defer fi.Close()
+		/*
+			fi, err := os.Create("initial-watched-addrs")
+			if err != nil {
+				panic(err)
+			}
+			defer fi.Close()
+		*/
 
 		for addrs := range watchAddrs {
-			for i := range addrs {
-				fmt.Fprintln(fi, addrs[i].String())
-			}
+			/*
+				for i := range addrs {
+					fmt.Fprintln(fi, addrs[i].String())
+				}
+			*/
 
 			count += uint64(len(addrs))
 			err := n.LoadTxFilter(ctx, false, addrs, nil)
@@ -1159,18 +1164,22 @@ func (w *Wallet) LoadActiveDataFilters(ctx context.Context, n NetworkBackend, re
 		}
 	}
 
-	fi2, err := os.Create("initial-watched-utxos")
-	if err != nil {
-		panic(err)
-	}
-	defer fi2.Close()
+	/*
+		fi2, err := os.Create("initial-watched-utxos")
+		if err != nil {
+			panic(err)
+		}
+		defer fi2.Close()
+	*/
 
 	buf := make([]wire.OutPoint, 0, 64)
 	defer func() {
 		if len(buf) > 0 && err == nil {
-			for i := range buf {
-				fmt.Fprintln(fi2, buf[i].String())
-			}
+			/*
+				for i := range buf {
+					fmt.Fprintln(fi2, buf[i].String())
+				}
+			*/
 
 			err = n.LoadTxFilter(ctx, false, nil, buf)
 			if err != nil {
@@ -1182,9 +1191,11 @@ func (w *Wallet) LoadActiveDataFilters(ctx context.Context, n NetworkBackend, re
 	watchOutPoint := func(op *wire.OutPoint) (err error) {
 		buf = append(buf, *op)
 		if len(buf) == cap(buf) {
-			for i := range buf {
-				fmt.Fprintln(fi2, buf[i].String())
-			}
+			/*
+				for i := range buf {
+					fmt.Fprintln(fi2, buf[i].String())
+				}
+			*/
 
 			err = n.LoadTxFilter(ctx, false, nil, buf)
 			buf = buf[:0]
@@ -1203,11 +1214,13 @@ func (w *Wallet) LoadActiveDataFilters(ctx context.Context, n NetworkBackend, re
 	abuf := make([]stdaddr.Address, 0, 256)
 	var importedAddrCount int
 
-	fi, err := os.Open("initial-watched-addrs")
-	if err != nil {
-		panic(err)
-	}
-	defer fi.Close()
+	/*
+		fi, err := os.Open("initial-watched-addrs")
+		if err != nil {
+			panic(err)
+		}
+		defer fi.Close()
+	*/
 
 	watchAddress := func(a udb.ManagedAddress) error {
 		addr := a.Address()
@@ -1215,9 +1228,11 @@ func (w *Wallet) LoadActiveDataFilters(ctx context.Context, n NetworkBackend, re
 		if len(abuf) == cap(abuf) {
 			importedAddrCount += len(abuf)
 
-			for i := range abuf {
-				fmt.Fprintln(fi, abuf[i].String())
-			}
+			/*
+				for i := range abuf {
+					fmt.Fprintln(fi, abuf[i].String())
+				}
+			*/
 
 			err := n.LoadTxFilter(ctx, false, abuf, nil)
 			abuf = abuf[:0]
@@ -1235,9 +1250,11 @@ func (w *Wallet) LoadActiveDataFilters(ctx context.Context, n NetworkBackend, re
 	if len(abuf) != 0 {
 		importedAddrCount += len(abuf)
 
-		for i := range abuf {
-			fmt.Fprintln(fi, abuf[i].String())
-		}
+		/*
+			for i := range abuf {
+				fmt.Fprintln(fi, abuf[i].String())
+			}
+		*/
 
 		err := n.LoadTxFilter(ctx, false, abuf, nil)
 		if err != nil {

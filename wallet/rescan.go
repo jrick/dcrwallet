@@ -7,9 +7,10 @@ package wallet
 
 import (
 	"context"
-	"fmt"
-	"os"
 	"time"
+
+	//"fmt"
+	//"os"
 
 	"decred.org/dcrwallet/v2/errors"
 	"decred.org/dcrwallet/v2/wallet/udb"
@@ -157,26 +158,31 @@ func (f *RescanFilter) RemoveUnspentOutPoint(op *wire.OutPoint) {
 func (w *Wallet) SaveRescanned(ctx context.Context, hash *chainhash.Hash, txs []*wire.MsgTx) error {
 	const op errors.Op = "wallet.SaveRescanned"
 
-	fi, err := os.OpenFile("rescan-transactions", os.O_RDWR|os.O_APPEND, 0)
-	if err != nil {
-		panic(err)
-	}
-	fi2, err := os.OpenFile("rescan-prev-outpoints", os.O_RDWR|os.O_APPEND, 0)
-	for i := range txs {
-		txHash := txs[i].TxHash()
-		fmt.Fprintln(fi, txHash.String())
-		for j := range txs[i].TxIn {
-			prevOut := txs[i].TxIn[j].PreviousOutPoint
-			fmt.Fprintln(fi2, prevOut)
+	/*
+		fi, err := os.OpenFile("rescan-transactions", os.O_RDWR|os.O_APPEND, 0)
+		if err != nil {
+			panic(err)
 		}
-	}
-	fi.Close()
-	fi2.Close()
+		fi2, err := os.OpenFile("rescan-prev-outpoints", os.O_RDWR|os.O_APPEND, 0)
+		if err != nil {
+			panic(err)
+		}
+		for i := range txs {
+			txHash := txs[i].TxHash()
+			fmt.Fprintln(fi, txHash.String())
+			for j := range txs[i].TxIn {
+				prevOut := txs[i].TxIn[j].PreviousOutPoint
+				fmt.Fprintln(fi2, prevOut)
+			}
+		}
+		fi.Close()
+		fi2.Close()
+	*/
 
 	defer w.lockedOutpointMu.Unlock()
 	w.lockedOutpointMu.Lock()
 
-	err = walletdb.Update(ctx, w.db, func(dbtx walletdb.ReadWriteTx) error {
+	err := walletdb.Update(ctx, w.db, func(dbtx walletdb.ReadWriteTx) error {
 		txmgrNs := dbtx.ReadWriteBucket(wtxmgrNamespaceKey)
 		blockMeta, err := w.txStore.GetBlockMetaForHash(txmgrNs, hash)
 		if err != nil {
@@ -212,16 +218,18 @@ func (w *Wallet) SaveRescanned(ctx context.Context, hash *chainhash.Hash, txs []
 func (w *Wallet) rescan(ctx context.Context, n NetworkBackend,
 	startHash *chainhash.Hash, height int32, p chan<- RescanProgress) error {
 
-	fi, err := os.Create("rescan-transactions") // truncate
-	if err != nil {
-		panic(err)
-	}
-	fi.Close()
-	fi, err = os.Create("rescan-prev-outpoints") // truncate
-	if err != nil {
-		panic(err)
-	}
-	fi.Close()
+	/*
+		fi, err := os.Create("rescan-transactions") // truncate
+		if err != nil {
+			panic(err)
+		}
+		fi.Close()
+		fi, err = os.Create("rescan-prev-outpoints") // truncate
+		if err != nil {
+			panic(err)
+		}
+		fi.Close()
+	*/
 
 	blockHashStorage := make([]chainhash.Hash, maxBlocksPerRescan)
 	rescanFrom := *startHash
