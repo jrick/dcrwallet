@@ -3146,8 +3146,9 @@ func (s *Store) MakeInputSource(dbtx walletdb.ReadTx, account uint32, minConf,
 	}()
 
 	type remainingKey struct {
-		k       []byte
-		unmined bool
+		k        []byte
+		unmined  bool
+		debugStr string
 	}
 
 	// Current inputs and their total value.  These are closed over by the
@@ -3188,6 +3189,7 @@ func (s *Store) MakeInputSource(dbtx walletdb.ReadTx, account uint32, minConf,
 		for currentTotal < target || target == 0 {
 			var k, v []byte
 			var err error
+			var debugStr string
 			if minConf != 0 && target != 0 && randTries < numUnspent/2 {
 				randTries++
 				k, v, err = s.randomUTXO(dbtx, skip)
@@ -3196,9 +3198,8 @@ func (s *Store) MakeInputSource(dbtx walletdb.ReadTx, account uint32, minConf,
 				}
 
 				if debug, op := isDebuggedUnspentKey(k); debug {
-					log.Infof("UTXO debug: %v:%v returned as unspent outpoint by MakeInputSource (random lookup)", &op.hash, op.index)
+					debugStr = fmt.Sprintf("UTXO debug: %v:%v returned as unspent outpoint by MakeInputSource (random lookup)", &op.hash, op.index)
 				}
-
 			} else if remainingKeys == nil {
 				if randTries > 0 {
 					log.Debugf("Abandoned random UTXO selection attempts after %v tries", randTries)
@@ -3215,8 +3216,14 @@ func (s *Store) MakeInputSource(dbtx walletdb.ReadTx, account uint32, minConf,
 					}
 					kcopy := make([]byte, len(k))
 					copy(kcopy, k)
+
+					var debugStr string
+					if debug, op := isDebuggedUnspentKey(k); debug {
+						debugStr = fmt.Sprintf("UTXO debug: %v:%v returned as unspent outpoint by MakeInputSource (fallback lookup, bucketUnspent)", &op.hash, op.index)
+					}
 					remainingKeys = append(remainingKeys, remainingKey{
-						k: kcopy,
+						k:        kcopy,
+						debugStr: debugStr,
 					})
 					return nil
 				})
@@ -3246,9 +3253,15 @@ func (s *Store) MakeInputSource(dbtx walletdb.ReadTx, account uint32, minConf,
 
 					kcopy := make([]byte, len(k))
 					copy(kcopy, k)
+
+					var debugStr string
+					if debug, op := isDebuggedUnspentKey(k); debug {
+						debugStr = fmt.Sprintf("UTXO debug: %v:%v returned as unspent outpoint by MakeInputSource (fallback lookup, bucketUnminedCredits)", &op.hash, op.index)
+					}
 					remainingKeys = append(remainingKeys, remainingKey{
-						k:       kcopy,
-						unmined: true,
+						k:        kcopy,
+						unmined:  true,
+						debugStr: debugStr,
 					})
 					return nil
 				})
@@ -3270,9 +3283,7 @@ func (s *Store) MakeInputSource(dbtx walletdb.ReadTx, account uint32, minConf,
 				remainingKeys = remainingKeys[1:]
 				k, unmined = next.k, next.unmined
 
-				if debug, op := isDebuggedUnspentKey(k); debug {
-					log.Infof("UTXO debug: %v:%v returned as unspent outpoint by MakeInputSource (fallback lookup)", &op.hash, op.index)
-				}
+				debugStr = next.debugStr
 			}
 			if !unmined {
 				v = ns.NestedReadBucket(bucketUnspent).Get(k)
@@ -3424,6 +3435,10 @@ func (s *Store) MakeInputSource(dbtx walletdb.ReadTx, account uint32, minConf,
 			default:
 				log.Errorf("unexpected script class for credit: %v", scriptClass)
 				continue
+			}
+
+			if debugStr != "" {
+				log.Info(debugStr)
 			}
 
 			currentTotal += amt
