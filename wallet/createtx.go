@@ -2048,6 +2048,7 @@ func (w *Wallet) findEligibleOutputsAmount(dbtx walletdb.ReadTx, account uint32,
 	}
 
 	eligible = eligible[:0]
+	seen = nil
 	outTotal = 0
 	unspent, err := w.txStore.UnspentOutputs(dbtx)
 	if err != nil {
