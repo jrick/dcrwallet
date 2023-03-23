@@ -2367,7 +2367,7 @@ func (s *Store) UnspentOutputCount(dbtx walletdb.ReadTx) int {
 
 // randomUTXO returns a random key/value pair from the unspent bucket, ignoring
 // any keys that match the skip function.
-func (s *Store) randomUTXO(dbtx walletdb.ReadTx, skip func(k []byte) bool) (k, v []byte, err error) {
+func (s *Store) randomUTXO(dbtx walletdb.ReadTx, skip func(k, v []byte) bool) (k, v []byte, err error) {
 	ns := dbtx.ReadBucket(wtxmgrBucketKey)
 
 	r := make([]byte, 33)
@@ -2391,7 +2391,7 @@ func (s *Store) randomUTXO(dbtx walletdb.ReadTx, skip func(k []byte) bool) (k, v
 		if len(keys) > 0 && !bytes.Equal(keys[0][:32], k[:32]) {
 			break
 		}
-		if skip(k) {
+		if skip(k, v) {
 			continue
 		}
 		keys = append(keys, append(make([]byte, 0, 36), k...))
@@ -2416,7 +2416,7 @@ func (s *Store) randomUTXO(dbtx walletdb.ReadTx, skip func(k []byte) bool) (k, v
 		if len(keys) > 0 && !bytes.Equal(keys[0][:32], k[:32]) {
 			break
 		}
-		if skip(k) {
+		if skip(k, v) {
 			continue
 		}
 		keys = append(keys, append(make([]byte, 0, 36), k...))
@@ -2444,13 +2444,14 @@ func (s *Store) RandomUTXO(dbtx walletdb.ReadTx, minConf, syncHeight int32) (*Cr
 			"optimized random utxo selection not possible with minConf=0")
 	}
 
-	skip := func(k []byte) bool {
+	skip := func(k, v []byte) bool {
 		if existsRawUnminedInput(ns, k) != nil {
 			// Output is spent by an unmined transaction.
 			return true
 		}
-		txHeight := extractRawCreditHeight(k)
-		if !confirmed(minConf, txHeight, syncHeight) {
+		var block Block
+		err := readUnspentBlock(v, &block)
+		if err != nil || !confirmed(minConf, block.Height, syncHeight) {
 			return true
 		}
 		return false
@@ -3168,14 +3169,15 @@ func (s *Store) MakeInputSource(dbtx walletdb.ReadTx, account uint32, minConf,
 		log.Debugf("Unspent bucket k/v count: %v", numUnspent)
 	}
 
-	skip := func(k []byte) bool {
+	skip := func(k, v []byte) bool {
 		if existsRawUnminedInput(ns, k) != nil {
 			// Output is spent by an unmined transaction.
 			// Skip to next unmined credit.
 			return true
 		}
-		txHeight := extractRawCreditHeight(k)
-		if !confirmed(minConf, txHeight, syncHeight) {
+		var block Block
+		err := readUnspentBlock(v, &block)
+		if err != nil || !confirmed(minConf, block.Height, syncHeight) {
 			return true
 		}
 		if _, ok := seen[string(k)]; ok {
@@ -3211,7 +3213,7 @@ func (s *Store) MakeInputSource(dbtx walletdb.ReadTx, account uint32, minConf,
 				remainingKeys = make([]remainingKey, 0)
 				b := ns.NestedReadBucket(bucketUnspent)
 				err = b.ForEach(func(k, v []byte) error {
-					if skip(k) {
+					if skip(k, v) {
 						return nil
 					}
 					kcopy := make([]byte, len(k))
@@ -3232,7 +3234,7 @@ func (s *Store) MakeInputSource(dbtx walletdb.ReadTx, account uint32, minConf,
 				}
 				b = ns.NestedReadBucket(bucketUnminedCredits)
 				err = b.ForEach(func(k, v []byte) error {
-					if skip(k) {
+					if _, ok := seen[string(k)]; ok {
 						return nil
 					}
 					// Skip unmined outputs from unpublished transactions.
