@@ -3232,43 +3232,45 @@ func (s *Store) MakeInputSource(dbtx walletdb.ReadTx, account uint32, minConf,
 				if err != nil {
 					return nil, err
 				}
-				b = ns.NestedReadBucket(bucketUnminedCredits)
-				err = b.ForEach(func(k, v []byte) error {
-					if _, ok := seen[string(k)]; ok {
-						return nil
-					}
-					// Skip unmined outputs from unpublished transactions.
-					if txHash := k[:32]; existsUnpublished(ns, txHash) {
-						return nil
-					}
-					// Skip ticket outputs, as only SSGen can spend these.
-					opcode := fetchRawUnminedCreditTagOpCode(v)
-					if opcode == txscript.OP_SSTX {
-						return nil
-					}
-					// Skip outputs that are not mature.
-					switch opcode {
-					case txscript.OP_SSGEN, txscript.OP_SSTXCHANGE, txscript.OP_SSRTX,
-						txscript.OP_TADD, txscript.OP_TGEN:
-						return nil
-					}
+				if minConf == 0 {
+					b = ns.NestedReadBucket(bucketUnminedCredits)
+					err = b.ForEach(func(k, v []byte) error {
+						if _, ok := seen[string(k)]; ok {
+							return nil
+						}
+						// Skip unmined outputs from unpublished transactions.
+						if txHash := k[:32]; existsUnpublished(ns, txHash) {
+							return nil
+						}
+						// Skip ticket outputs, as only SSGen can spend these.
+						opcode := fetchRawUnminedCreditTagOpCode(v)
+						if opcode == txscript.OP_SSTX {
+							return nil
+						}
+						// Skip outputs that are not mature.
+						switch opcode {
+						case txscript.OP_SSGEN, txscript.OP_SSTXCHANGE, txscript.OP_SSRTX,
+							txscript.OP_TADD, txscript.OP_TGEN:
+							return nil
+						}
 
-					kcopy := make([]byte, len(k))
-					copy(kcopy, k)
+						kcopy := make([]byte, len(k))
+						copy(kcopy, k)
 
-					var debugStr string
-					if debug, op := isDebuggedUnspentKey(k); debug {
-						debugStr = fmt.Sprintf("UTXO debug: %v:%v returned as unspent outpoint by MakeInputSource (fallback lookup, bucketUnminedCredits)", &op.hash, op.index)
-					}
-					remainingKeys = append(remainingKeys, remainingKey{
-						k:        kcopy,
-						unmined:  true,
-						debugStr: debugStr,
+						var debugStr string
+						if debug, op := isDebuggedUnspentKey(k); debug {
+							debugStr = fmt.Sprintf("UTXO debug: %v:%v returned as unspent outpoint by MakeInputSource (fallback lookup, bucketUnminedCredits)", &op.hash, op.index)
+						}
+						remainingKeys = append(remainingKeys, remainingKey{
+							k:        kcopy,
+							unmined:  true,
+							debugStr: debugStr,
+						})
+						return nil
 					})
-					return nil
-				})
-				if err != nil {
-					return nil, err
+					if err != nil {
+						return nil, err
+					}
 				}
 				shuffle(len(remainingKeys), func(i, j int) {
 					remainingKeys[i], remainingKeys[j] = remainingKeys[j], remainingKeys[i]
