@@ -2046,10 +2046,10 @@ func (w *Wallet) findEligibleOutputsAmount(dbtx walletdb.ReadTx, account uint32,
 			PrevOut:  *txOut,
 		})
 		outTotal += output.Amount
-		if outTotal >= amount {
+		if amount != 0 && outTotal >= amount {
 			return eligible, nil
 		}
-		if len(eligible) == maxResults {
+		if maxResults != 0 && len(eligible) == maxResults {
 			return eligible, nil
 		}
 	}
