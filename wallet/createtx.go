@@ -2018,12 +2018,12 @@ func (w *Wallet) findEligibleOutputsAmount(dbtx walletdb.ReadTx, account uint32,
 
 	randTries := 0
 	maxTries := 0
-	if minconf > 0 {
+	if (amount != 0 || maxResults != 0) && minconf > 0 {
 		numUnspent := w.txStore.UnspentOutputCount(dbtx)
 		log.Debugf("Unspent bucket k/v count: %v", numUnspent)
 		maxTries = numUnspent / 2
 	}
-	for ; amount != 0 && randTries < maxTries; randTries++ {
+	for ; randTries < maxTries; randTries++ {
 		output, err := w.txStore.RandomUTXO(dbtx, minconf, currentHeight)
 		if err != nil {
 			return nil, err
@@ -2049,7 +2049,7 @@ func (w *Wallet) findEligibleOutputsAmount(dbtx walletdb.ReadTx, account uint32,
 		if outTotal >= amount {
 			return eligible, nil
 		}
-		if maxResults != 0 && len(eligible) == maxResults {
+		if len(eligible) == maxResults {
 			return eligible, nil
 		}
 	}
