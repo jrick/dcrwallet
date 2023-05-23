@@ -98,8 +98,8 @@ github.com/jessevdk/go-flags v1.4.1-0.20200711081900-c17162fe8fd7 h1:Ug59miTxVKV
 github.com/jessevdk/go-flags v1.4.1-0.20200711081900-c17162fe8fd7/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
 github.com/jrick/bitset v1.0.0 h1:Ws0PXV3PwXqWK2n7Vz6idCdrV/9OrBXgHEJi27ZB9Dw=
 github.com/jrick/bitset v1.0.0/go.mod h1:ZOYB5Uvkla7wIEY4FEssPVi3IQXa02arznRaYaAEPe4=
-github.com/jrick/cspp/v2 v2.0.0-20230517205724-4ab095400154 h1:2FKtAqwkNF65ByiRDCL/+IGR/8nZrcCYh8IMASMWu38=
-github.com/jrick/cspp/v2 v2.0.0-20230517205724-4ab095400154/go.mod h1:+/9jr1RhVshWnc0U/eXxMlxfiu9/f7ia6TTyS0Oh5n0=
+github.com/jrick/cspp/v2 v2.0.0-20230523160959-15fb29d53fa5 h1:/NjkFNXxzNmqp+QKXRtUOIxx3RRsfsAboViL9TgvPB0=
+github.com/jrick/cspp/v2 v2.0.0-20230523160959-15fb29d53fa5/go.mod h1:+/9jr1RhVshWnc0U/eXxMlxfiu9/f7ia6TTyS0Oh5n0=
 github.com/jrick/logrotate v1.0.0 h1:lQ1bL/n9mBNeIXoTUoYRlK4dHuNJVofX9oWqBtPnSzI=
 github.com/jrick/logrotate v1.0.0/go.mod h1:LNinyqDIJnpAur+b8yyulnQw/wDuN1+BYKlTRt3OuAQ=
 github.com/jrick/wsrpc/v2 v2.3.4 h1:+GzRtp/TyXaSB61pN92lIAVyvdVv0RSqniIEB/rPx1Q=

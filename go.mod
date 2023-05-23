@@ -43,4 +43,4 @@ retract v2.0.6 // Tagged wrong branch
 
 retract v2.0.7 // Contains incorrect TestNet3 difficulty rules
 
-replace decred.org/cspp/v2 => github.com/jrick/cspp/v2 v2.0.0-20230517205724-4ab095400154
+replace decred.org/cspp/v2 => github.com/jrick/cspp/v2 v2.0.0-20230523160959-15fb29d53fa5
