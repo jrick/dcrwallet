@@ -336,9 +336,6 @@ func PossibleCoinJoin(tx *wire.MsgTx) (isMix bool, mixDenom int64, mixCount uint
 	scripts := make(map[string]int)
 	for _, o := range tx.TxOut {
 		scripts[string(o.PkScript)]++
-		if scripts[string(o.PkScript)] > 1 {
-			return false, 0, 0
-		}
 		val := o.Value
 		// Multiple zero valued outputs do not count as a coinjoin mix.
 		if val == 0 {
@@ -358,6 +355,15 @@ func PossibleCoinJoin(tx *wire.MsgTx) (isMix bool, mixDenom int64, mixCount uint
 
 		outputsWithNotSameAmount := uint32(numberOfOutputs) - count
 		if outputsWithNotSameAmount > uint32(numberOfInputs) {
+			return false, 0, 0
+		}
+	}
+
+	for _, o := range tx.TxOut {
+		if o.Value != mixDenom {
+			continue
+		}
+		if scripts[string(o.PkScript)] > 1 {
 			return false, 0, 0
 		}
 	}
