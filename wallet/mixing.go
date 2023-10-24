@@ -352,11 +352,11 @@ func PossibleCoinJoin(tx *wire.MsgTx) (isMix bool, mixDenom int64, mixCount uint
 			mixDenom = val
 			mixCount = count
 		}
+	}
 
-		outputsWithNotSameAmount := uint32(numberOfOutputs) - count
-		if outputsWithNotSameAmount > uint32(numberOfInputs) {
-			return false, 0, 0
-		}
+	nonMixOutputs := uint32(numberOfOutputs) - mixCount
+	if nonMixOutputs > uint32(numberOfInputs) {
+		return false, 0, 0
 	}
 
 	for _, o := range tx.TxOut {
