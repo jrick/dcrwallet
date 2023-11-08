@@ -348,7 +348,7 @@ func PossibleCoinJoin(tx *wire.MsgTx) (isMix bool, mixDenom int64, mixCount uint
 		if count < 3 {
 			continue
 		}
-		if count > mixCount {
+		if count > mixCount || count == mixCount && val > mixDenom {
 			mixDenom = val
 			mixCount = count
 		}
