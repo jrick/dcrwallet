@@ -3342,6 +3342,10 @@ func (s *Store) MakeInputSource(dbtx walletdb.ReadTx, account uint32, minConf,
 				scriptSize = txsizes.RedeemP2PKHSigScriptSize
 			case stdscript.STPubKeyEcdsaSecp256k1:
 				scriptSize = txsizes.RedeemP2PKSigScriptSize
+			case stdscript.STScriptHash:
+				// TODO: hack -- don't error on p2sh even though we
+				// don't know what the spending requirements are for
+				// fee/size estimation.
 			default:
 				log.Errorf("unexpected script class for credit: %v", scriptClass)
 				continue
