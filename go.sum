@@ -39,6 +39,8 @@ github.com/decred/dcrd/chaincfg/v3 v3.2.0 h1:6WxA92AGBkycEuWvxtZMvA76FbzbkDRoK8O
 github.com/decred/dcrd/chaincfg/v3 v3.2.0/go.mod h1:2rHW1TKyFmwZTVBLoU/Cmf0oxcpBjUEegbSlBfrsriI=
 github.com/decred/dcrd/connmgr/v3 v3.1.1 h1:si7bgYlyeSbB0Ewe+bfoO/RAzxuPwPkL40DDZhyITmo=
 github.com/decred/dcrd/connmgr/v3 v3.1.1/go.mod h1:YlRGPagi/6SJbG9CFq2ZnorX9+deRNb6+m0ovkNDcKY=
+github.com/decred/dcrd/container/apbf v1.0.1 h1:oepQzRtLADudsrx0AmmowoU1kambozINTMXduH6Mge0=
+github.com/decred/dcrd/container/apbf v1.0.1/go.mod h1:paQplssZMsRhwOUcP6LDNDypyb7lwsFHrUKUkAPFWtQ=
 github.com/decred/dcrd/crypto/blake256 v1.0.1 h1:7PltbUIQB7u/FfZ39+DGa/ShuMyJ5ilcvdfma9wOH6Y=
 github.com/decred/dcrd/crypto/blake256 v1.0.1/go.mod h1:2OfgNZ5wDpcsFmHmCK5gZTPcCXqlm2ArzUIkw9czNJo=
 github.com/decred/dcrd/crypto/ripemd160 v1.0.2 h1:TvGTmUBHDU75OHro9ojPLK+Yv7gDl2hnUvRocRCjsys=
