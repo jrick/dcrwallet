@@ -319,6 +319,10 @@ func Open(directory string) (db *DB, err error) {
 	return db, nil
 }
 
+func (db *DB) Close() error {
+	db.bboltDB.Close()
+}
+
 func (db *DB) readHeaderAtOffset(off int64) (*wire.BlockHeader, error) {
 	seeked, err := db.headersFile.Seek(off, 0)
 	if err != nil {
@@ -371,35 +375,37 @@ func (db *DB) InsertTx(hash chainhash.Hash, tx *wire.MsgTx) error {
 	// File must be synced before database update is committed, but this is
 	// done at the end of the transaction.
 
-	err = db.bboltDB.Update(func(dbtx *bbolt.Tx) error {
-		bucket := dbtx.Bucket(transactionsBucketName)
-		seq := bucket.Sequence()
+	go func() {
+		err = db.bboltDB.Batch(func(dbtx *bbolt.Tx) error {
+			bucket := dbtx.Bucket(transactionsBucketName)
+			seq := bucket.Sequence()
+			if err != nil {
+				return err
+			}
+			seqKey := make([]byte, 8)
+			be.PutUint64(seqKey, seq)
+
+			v := make([]byte, 40)
+			be.PutUint64(v[:8], uint64(off))
+			copy(v[8:], hash[:])
+
+			bucket.Put(seqKey, v)
+
+			// Increment sequence for next update (so our sequences begin
+			// at zero).
+			bucket.NextSequence()
+
+			err = db.transactionsFile.Sync()
+			if err != nil {
+				return err
+			}
+
+			return nil
+		})
 		if err != nil {
-			return err
+			//return err
 		}
-		seqKey := make([]byte, 8)
-		be.PutUint64(seqKey, seq)
-
-		v := make([]byte, 40)
-		be.PutUint64(v[:8], uint64(off))
-		copy(v[8:], hash[:])
-
-		bucket.Put(seqKey, v)
-
-		// Increment sequence for next update (so our sequences begin
-		// at zero).
-		bucket.NextSequence()
-
-		err = db.transactionsFile.Sync()
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-	if err != nil {
-		return err
-	}
+	}()
 
 	go func() {
 		err := db.txKeysDB.Batch(func(dbtx *bbolt.Tx) error {
