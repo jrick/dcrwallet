@@ -319,10 +319,6 @@ func Open(directory string) (db *DB, err error) {
 	return db, nil
 }
 
-func (db *DB) Close() error {
-	db.bboltDB.Close()
-}
-
 func (db *DB) readHeaderAtOffset(off int64) (*wire.BlockHeader, error) {
 	seeked, err := db.headersFile.Seek(off, 0)
 	if err != nil {
