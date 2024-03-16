@@ -371,6 +371,9 @@ func (db *DB) InsertTx(hash chainhash.Hash, tx *wire.MsgTx) error {
 	// File must be synced before database update is committed, but this is
 	// done at the end of the transaction.
 
+	db.txLRU.Add(hash, tx)
+	db.txAPBF.Add(hash[:])
+
 	go func() {
 		err = db.bboltDB.Batch(func(dbtx *bbolt.Tx) error {
 			bucket := dbtx.Bucket(transactionsBucketName)
