@@ -18,6 +18,7 @@ import (
 	"github.com/decred/dcrd/chaincfg/chainhash"
 	"github.com/decred/dcrd/dcrutil/v4"
 	"github.com/decred/dcrd/gcs/v4"
+	"github.com/decred/dcrd/mixing"
 	"github.com/decred/dcrd/txscript/v4/stdaddr"
 	"github.com/decred/dcrd/wire"
 	"golang.org/x/sync/errgroup"
@@ -414,6 +415,23 @@ func (s *Syncer) PublishTransactions(ctx context.Context, txs ...*wire.MsgTx) er
 			}
 		}
 		err := msg.AddInvVect(wire.NewInvVect(wire.InvTypeTx, &txHash))
+		if err != nil {
+			return errors.E(errors.Protocol, err)
+		}
+	}
+	return s.forRemotes(func(rp *p2p.RemotePeer) error {
+		for _, inv := range msg.InvList {
+			rp.InvsSent().Add(inv.Hash)
+		}
+		return rp.SendMessage(ctx, msg)
+	})
+}
+
+func (s *Syncer) PublishMixMessages(ctx context.Context, msgs ...mixing.Message) error {
+	msg := wire.NewMsgInvSizeHint(uint(len(msgs)))
+	for _, mixMsg := range msgs {
+		mixMsgHash := mixMsg.Hash()
+		err := msg.AddInvVect(wire.NewInvVect(wire.InvTypeMix, &mixMsgHash))
 		if err != nil {
 			return errors.E(errors.Protocol, err)
 		}

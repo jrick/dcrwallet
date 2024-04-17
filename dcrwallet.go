@@ -177,7 +177,6 @@ func run(ctx context.Context) error {
 		cfg.GapLimit, cfg.WatchLast, cfg.AllowHighFees, cfg.RelayFee.Amount,
 		cfg.AccountGapLimit, cfg.DisableCoinTypeUpgrades, cfg.ManualTickets,
 		cfg.MixSplitLimit)
-	loader.DialCSPPServer = cfg.dialCSPPServer
 
 	// Stop any services started by the loader after the shutdown procedure is
 	// initialized and this function returns.
@@ -358,8 +357,7 @@ func run(ctx context.Context) error {
 				c.PoolFeeAddr = poolFeeAddr
 				c.Limit = int(cfg.TBOpts.Limit)
 				c.VotingAccount = votingAccount
-				c.CSPPServer = cfg.CSPPServer
-				c.DialCSPPServer = cfg.dialCSPPServer
+				c.Mixing = cfg.CSPPServer != ""
 				c.MixChange = cfg.MixChange
 				c.MixedAccount = mixedAccount
 				c.MixedAccountBranch = cfg.mixedBranch
@@ -400,7 +398,7 @@ func run(ctx context.Context) error {
 		// Start wallet, voting and network gRPC services after a
 		// wallet is loaded.
 		loader.RunAfterLoad(func(w *wallet.Wallet) {
-			rpcserver.StartWalletService(gRPCServer, w, cfg.dialCSPPServer)
+			rpcserver.StartWalletService(gRPCServer, w)
 			rpcserver.StartNetworkService(gRPCServer, w)
 			rpcserver.StartVotingService(gRPCServer, w)
 		})

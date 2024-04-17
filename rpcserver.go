@@ -367,7 +367,6 @@ func startRPCServers(walletLoader *loader.Loader) (*grpc.Server, *jsonrpc.Server
 			MaxPOSTClients:      cfg.LegacyRPCMaxClients,
 			MaxWebsocketClients: cfg.LegacyRPCMaxWebsockets,
 			CSPPServer:          cfg.CSPPServer,
-			DialCSPPServer:      cfg.dialCSPPServer,
 			MixAccount:          cfg.mixedAccount,
 			MixBranch:           cfg.mixedBranch,
 			MixChangeAccount:    cfg.ChangeAccount,

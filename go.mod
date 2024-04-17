@@ -3,7 +3,7 @@ module decred.org/dcrwallet/v4
 go 1.20
 
 require (
-	decred.org/cspp/v2 v2.1.0
+	decred.org/cspp/v2 v2.1.1-0.20231208141305-09ca221568cb
 	github.com/decred/dcrd/addrmgr/v2 v2.0.2
 	github.com/decred/dcrd/blockchain/stake/v5 v5.0.0
 	github.com/decred/dcrd/blockchain/standalone/v2 v2.2.0
@@ -20,6 +20,7 @@ require (
 	github.com/decred/dcrd/dcrutil/v4 v4.0.1
 	github.com/decred/dcrd/gcs/v4 v4.0.0
 	github.com/decred/dcrd/hdkeychain/v3 v3.1.1
+	github.com/decred/dcrd/mixing v0.0.0
 	github.com/decred/dcrd/rpc/jsonrpc/types/v4 v4.1.0
 	github.com/decred/dcrd/rpcclient/v8 v8.0.0
 	github.com/decred/dcrd/txscript/v4 v4.1.0
@@ -57,3 +58,9 @@ require (
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
 	lukechampine.com/blake3 v1.2.1 // indirect
 )
+
+replace github.com/decred/dcrd/wire => github.com/jrick/dcrd/wire v1.3.1-0.20240416195417-6ebbdc0bfe69
+
+replace github.com/decred/dcrd/rpc/jsonrpc/types/v4 => github.com/jrick/dcrd/rpc/jsonrpc/types/v4 v4.0.0-20240416195417-6ebbdc0bfe69
+
+replace github.com/decred/dcrd/mixing => github.com/jrick/dcrd/mixing v0.0.0-20240416195417-6ebbdc0bfe69

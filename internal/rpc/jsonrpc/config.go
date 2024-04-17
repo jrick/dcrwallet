@@ -20,7 +20,6 @@ type Options struct {
 	MaxWebsocketClients int64
 
 	CSPPServer         string
-	DialCSPPServer     func(ctx context.Context, network, addr string) (net.Conn, error)
 	MixAccount         string
 	MixBranch          uint32
 	MixChangeAccount   string

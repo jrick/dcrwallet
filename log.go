@@ -19,6 +19,7 @@ import (
 	"decred.org/dcrwallet/v4/wallet"
 	"decred.org/dcrwallet/v4/wallet/udb"
 	"github.com/decred/dcrd/connmgr/v3"
+	"github.com/decred/dcrd/mixing/mixpool"
 	"github.com/decred/slog"
 )
 
@@ -36,6 +37,7 @@ func init() {
 	rpcserver.UseLogger(loggers.GrpcLog)
 	jsonrpc.UseLogger(loggers.JsonrpcLog)
 	connmgr.UseLogger(loggers.CmgrLog)
+	mixpool.UseLogger(loggers.MixpLog)
 }
 
 // subsystemLoggers maps each subsystem identifier to its associated logger.
@@ -49,6 +51,7 @@ var subsystemLoggers = map[string]slog.Logger{
 	"GRPC": loggers.GrpcLog,
 	"RPCS": loggers.JsonrpcLog,
 	"CMGR": loggers.CmgrLog,
+	"MIXP": loggers.MixpLog,
 	"VSPC": loggers.VspcLog,
 }
 

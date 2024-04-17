@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The Decred developers
+// Copyright (c) 2018-2023 The Decred developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
 
@@ -26,6 +26,7 @@ import (
 	"github.com/decred/dcrd/connmgr/v3"
 	"github.com/decred/dcrd/gcs/v4"
 	blockcf "github.com/decred/dcrd/gcs/v4/blockcf2"
+	"github.com/decred/dcrd/mixing"
 	"github.com/decred/dcrd/wire"
 	"github.com/decred/go-socks/socks"
 	"golang.org/x/sync/errgroup"
@@ -42,7 +43,7 @@ var uaVersion = version.String()
 const minPver = wire.RemoveRejectVersion
 
 // Pver is the maximum protocol version implemented by the LocalPeer.
-const Pver = wire.RemoveRejectVersion
+const Pver = wire.MixVersion
 
 // stallTimeout is the amount of time allowed before a request to receive data
 // that is known to exist at the RemotePeer times out with no matching reply.
@@ -132,6 +133,7 @@ type LocalPeer struct {
 	receivedInv       chan *inMsg
 	announcedHeaders  chan *inMsg
 	receivedInitState chan *inMsg
+	receivedMixMsg    chan *inMsg
 
 	extaddr     net.Addr
 	amgr        *addrmgr.AddrManager
@@ -152,6 +154,7 @@ func NewLocalPeer(params *chaincfg.Params, extaddr *net.TCPAddr, amgr *addrmgr.A
 		receivedInv:       make(chan *inMsg),
 		announcedHeaders:  make(chan *inMsg),
 		receivedInitState: make(chan *inMsg),
+		receivedMixMsg:    make(chan *inMsg),
 		extaddr:           extaddr,
 		amgr:              amgr,
 		chainParams:       params,
@@ -751,6 +754,21 @@ func (rp *RemotePeer) readMessages(ctx context.Context) error {
 				pong(ctx, m, rp)
 			case *wire.MsgPong:
 				rp.receivedPong(ctx, m)
+
+			case *wire.MsgMixPairReq:
+				rp.receivedMixMsg(ctx, m)
+			case *wire.MsgMixKeyExchange:
+				rp.receivedMixMsg(ctx, m)
+			case *wire.MsgMixCiphertexts:
+				rp.receivedMixMsg(ctx, m)
+			case *wire.MsgMixSlotReserve:
+				rp.receivedMixMsg(ctx, m)
+			case *wire.MsgMixDCNet:
+				rp.receivedMixMsg(ctx, m)
+			case *wire.MsgMixConfirm:
+				rp.receivedMixMsg(ctx, m)
+			case *wire.MsgMixSecrets:
+				rp.receivedMixMsg(ctx, m)
 			}
 		}()
 	}
@@ -778,6 +796,7 @@ type MessageMask uint64
 const (
 	MaskGetData MessageMask = 1 << iota
 	MaskInv
+	MaskMix
 )
 
 // AddHandledMessages adds all messages defined by the bitmask.  This operation
@@ -844,6 +863,19 @@ func (lp *LocalPeer) ReceiveHeadersAnnouncement(ctx context.Context) (*RemotePee
 		rp, msg := r.rp, r.msg.(*wire.MsgHeaders)
 		recycleInMsg(r)
 		return rp, msg.Headers, nil
+	}
+}
+
+// ReceiveMixMessage waits for a mixing message from a remote peer, returning
+// the peer that sent the message, and the message itself.
+func (lp *LocalPeer) ReceiveMixMessage(ctx context.Context) (*RemotePeer, mixing.Message, error) {
+	select {
+	case <-ctx.Done():
+		return nil, nil, ctx.Err()
+	case r := <-lp.receivedMixMsg:
+		rp, msg := r.rp, r.msg.(mixing.Message)
+		recycleInMsg(r)
+		return rp, msg, nil
 	}
 }
 
@@ -926,6 +958,7 @@ func (rp *RemotePeer) deleteRequestedCFilterV2(hash *chainhash.Hash) {
 }
 
 func (rp *RemotePeer) receivedCFilterV2(ctx context.Context, msg *wire.MsgCFilterV2) {
+	log.Debugf("received cfilter for block %v", &msg.BlockHash)
 	const opf = "remotepeer(%v).receivedCFilterV2(%v)"
 	var k any = msg.BlockHash
 	v, ok := rp.requestedCFiltersV2.Load(k)
@@ -1144,6 +1177,18 @@ func (rp *RemotePeer) receivedGetInitState(ctx context.Context) {
 	case <-ctx.Done():
 	case <-rp.errc:
 	case rp.out <- &msgAck{m, nil}:
+	}
+}
+
+func (rp *RemotePeer) receivedMixMsg(ctx context.Context, msg mixing.Message) {
+	if rp.banScore.Increase(0, 1) > banThreshold {
+		log.Warnf("%v: ban score reached threshold", rp.RemoteAddr())
+		rp.Disconnect(errors.E(errors.Protocol, "ban score reached"))
+		return
+	}
+
+	if rp.lp.messageIsMasked(MaskMix) {
+		rp.lp.receivedMixMsg <- newInMsg(rp, msg)
 	}
 }
 
@@ -1741,17 +1786,47 @@ func (rp *RemotePeer) HeadersAsync(ctx context.Context, blockLocators []*chainha
 // hashes of txs.
 func (rp *RemotePeer) PublishTransactions(ctx context.Context, txs ...*wire.MsgTx) error {
 	const opf = "remotepeer(%v).PublishTransactions"
-	msg := wire.NewMsgInvSizeHint(uint(len(txs)))
+	inv := wire.NewMsgInvSizeHint(uint(len(txs)))
 	for i := range txs {
 		txHash := txs[i].TxHash()
 		rp.invsSent.Add(txHash)
-		err := msg.AddInvVect(wire.NewInvVect(wire.InvTypeTx, &txHash))
+		err := inv.AddInvVect(wire.NewInvVect(wire.InvTypeTx, &txHash))
 		if err != nil {
 			op := errors.Opf(opf, rp.raddr)
 			return errors.E(op, errors.Protocol, err)
 		}
 	}
-	err := rp.SendMessage(ctx, msg)
+	err := rp.SendMessage(ctx, inv)
+	if err != nil {
+		op := errors.Opf(opf, rp.raddr)
+		return errors.E(op, err)
+	}
+	return nil
+}
+
+// PublishTransactions pushes an inventory message advertising transaction
+// hashes of txs.
+func (rp *RemotePeer) PublishMixMessages(ctx context.Context, msgs ...mixing.Message) error {
+	const opf = "remotepeer(%v).PublishMixMessages"
+
+	if rp.pver < wire.MixVersion {
+		op := errors.Opf(opf, rp.raddr)
+		err := errors.Errorf("protocol version %v is too low to publish mix messages",
+			rp.pver)
+		return errors.E(op, errors.Protocol, err)
+	}
+
+	inv := wire.NewMsgInvSizeHint(uint(len(msgs)))
+	for _, msg := range msgs {
+		msgHash := msg.Hash() // Must be type chainhash.Hash
+		rp.invsSent.Add(msgHash)
+		err := inv.AddInvVect(wire.NewInvVect(wire.InvTypeMix, &msgHash))
+		if err != nil {
+			op := errors.Opf(opf, rp.raddr)
+			return errors.E(op, errors.Protocol, err)
+		}
+	}
+	err := rp.SendMessage(ctx, inv)
 	if err != nil {
 		op := errors.Opf(opf, rp.raddr)
 		return errors.E(op, err)

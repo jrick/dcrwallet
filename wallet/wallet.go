@@ -43,6 +43,8 @@ import (
 	"github.com/decred/dcrd/dcrutil/v4"
 	gcs2 "github.com/decred/dcrd/gcs/v4"
 	"github.com/decred/dcrd/hdkeychain/v3"
+	"github.com/decred/dcrd/mixing/mixclient"
+	"github.com/decred/dcrd/mixing/mixpool"
 	dcrdtypes "github.com/decred/dcrd/rpc/jsonrpc/types/v4"
 	"github.com/decred/dcrd/txscript/v4"
 	"github.com/decred/dcrd/txscript/v4/sign"
@@ -160,8 +162,10 @@ type Wallet struct {
 	passphraseTimeoutMu     sync.Mutex
 	passphraseTimeoutCancel chan struct{}
 
-	// Mix rate limiting
-	mixSems mixSemaphores
+	// Mixing
+	mixpool   *mixpool.Pool
+	mixSems   mixSemaphores
+	mixClient *mixclient.Client
 
 	// Cached Blake3 anchor candidate
 	cachedBlake3WorkDiffCandidateAnchor   *wire.BlockHeader
@@ -1606,8 +1610,7 @@ type PurchaseTicketsRequest struct {
 	DontSignTx       bool
 
 	// Mixed split buying through CoinShuffle++
-	CSPPServer         string
-	DialCSPPServer     DialFunc
+	Mixing             bool // XXX: replaced csppserver != "" checks
 	MixedAccount       uint32
 	MixedAccountBranch uint32
 	MixedSplitAccount  uint32
@@ -1658,7 +1661,7 @@ func (w *Wallet) PurchaseTickets(ctx context.Context, n NetworkBackend,
 	// Do not attempt to split utxos for a fee payment when spending from
 	// the mixed account.  This error is rather unlikely anyways, as mixed
 	// accounts probably have very many outputs.
-	if req.CSPPServer != "" && req.MixedAccount == req.SourceAccount {
+	if req.Mixing && req.MixedAccount == req.SourceAccount {
 		return nil, errors.E(op, errors.InsufficientBalance)
 	}
 
@@ -5635,6 +5638,16 @@ func Open(ctx context.Context, cfg *Config) (*Wallet, error) {
 
 	// Record current tip as initialHeight.
 	_, w.initialHeight = w.MainChainTip(ctx)
+
+	w.mixpool = mixpool.NewPool((*mixpoolBlockchain)(w))
+	w.mixClient = mixclient.NewClient((*mixingWallet)(w))
+
+	if params.Net == wire.TestNet3 {
+		w.mixClient.SetEpoch(3 * time.Minute)
+	}
+
+	w.mixClient.SetLogger(infoLog)           // XXX: revert to debug
+	go w.mixClient.Run(context.Background()) // XXX: find a better place to run this
 
 	return w, nil
 }

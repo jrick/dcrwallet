@@ -1,7 +1,7 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 cloud.google.com/go v0.34.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
-decred.org/cspp/v2 v2.1.0 h1:HeHb9+BFqrBaAPc6CsPiUpPFmC1uyBM2mJZUAbUXkRw=
-decred.org/cspp/v2 v2.1.0/go.mod h1:9nO3bfvCheOPIFZw5f6sRQ42CjBFB5RKSaJ9Iq6G4MA=
+decred.org/cspp/v2 v2.1.1-0.20231208141305-09ca221568cb h1:89Gq1OSIecIwl34nP2VcoLwPg27bcZfryvwOQblf/8c=
+decred.org/cspp/v2 v2.1.1-0.20231208141305-09ca221568cb/go.mod h1:9nO3bfvCheOPIFZw5f6sRQ42CjBFB5RKSaJ9Iq6G4MA=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/agl/ed25519 v0.0.0-20170116200512-5312a6153412 h1:w1UutsfOrms1J05zt7ISrnJIXKzwaspym5BTKGx93EI=
 github.com/agl/ed25519 v0.0.0-20170116200512-5312a6153412/go.mod h1:WPjqKcmVOxf0XSf3YxCJs6N6AOSrOx3obionmG7T0y0=
@@ -59,14 +59,10 @@ github.com/decred/dcrd/gcs/v4 v4.0.0 h1:bet+Ax1ZFUqn2M0g1uotm0b8F6BZ9MmblViyJ088
 github.com/decred/dcrd/gcs/v4 v4.0.0/go.mod h1:9z+EBagzpEdAumwS09vf/hiGaR8XhNmsBgaVq6u7/NI=
 github.com/decred/dcrd/hdkeychain/v3 v3.1.1 h1:4WhyHNBy7ec6qBUC7Fq7JFVGSd7bpuR5H+AJRID8Lyk=
 github.com/decred/dcrd/hdkeychain/v3 v3.1.1/go.mod h1:HaabrLc27lnny5/Ph9+6I3szp0op5MCb7smEwlzfD60=
-github.com/decred/dcrd/rpc/jsonrpc/types/v4 v4.1.0 h1:kQFK7FMTmMDX9amyhh8IR0vwwI8dH0KCBm42C64bWVs=
-github.com/decred/dcrd/rpc/jsonrpc/types/v4 v4.1.0/go.mod h1:dDHO7ivrPAhZjFD3LoOJN/kdq5gi0sxie6zCsWHAiUo=
 github.com/decred/dcrd/rpcclient/v8 v8.0.0 h1:O4B5d+8e2OjbeFW+c1XcZNQzyp++04ArWhXgYrsURus=
 github.com/decred/dcrd/rpcclient/v8 v8.0.0/go.mod h1:gx4+DI5apuOEeLwPBJFlMoj3GFWq1I7/X8XCQmMTi8Q=
 github.com/decred/dcrd/txscript/v4 v4.1.0 h1:uEdcibIOl6BuWj3AqmXZ9xIK/qbo6lHY9aNk29FtkrU=
 github.com/decred/dcrd/txscript/v4 v4.1.0/go.mod h1:OVguPtPc4YMkgssxzP8B6XEMf/J3MB6S1JKpxgGQqi0=
-github.com/decred/dcrd/wire v1.6.0 h1:YOGwPHk4nzGr6OIwUGb8crJYWDiVLpuMxfDBCCF7s/o=
-github.com/decred/dcrd/wire v1.6.0/go.mod h1:XQ8Xv/pN/3xaDcb7sH8FBLS9cdgVctT7HpBKKGsIACk=
 github.com/decred/go-socks v1.1.0 h1:dnENcc0KIqQo3HSXdgboXAHgqsCIutkqq6ntQjYtm2U=
 github.com/decred/go-socks v1.1.0/go.mod h1:sDhHqkZH0X4JjSa02oYOGhcGHYp12FsY1jQ/meV8md0=
 github.com/decred/slog v1.2.0 h1:soHAxV52B54Di3WtKLfPum9OFfWqwtf/ygf9njdfnPM=
@@ -114,6 +110,12 @@ github.com/jessevdk/go-flags v1.5.0 h1:1jKYvbxEjfUl0fmqTCOfonvskHHXMjBySTLW4y9LF
 github.com/jessevdk/go-flags v1.5.0/go.mod h1:Fw0T6WPc1dYxT4mKEZRfG5kJhaTDP9pj1c2EWnYs/m4=
 github.com/jrick/bitset v1.0.0 h1:Ws0PXV3PwXqWK2n7Vz6idCdrV/9OrBXgHEJi27ZB9Dw=
 github.com/jrick/bitset v1.0.0/go.mod h1:ZOYB5Uvkla7wIEY4FEssPVi3IQXa02arznRaYaAEPe4=
+github.com/jrick/dcrd/mixing v0.0.0-20240416195417-6ebbdc0bfe69 h1:KaWSiOYsUp7McPqwoOV2GvyEt101U8/kDkzkb2/b0b4=
+github.com/jrick/dcrd/mixing v0.0.0-20240416195417-6ebbdc0bfe69/go.mod h1:PdP/jBlSzruegH8dIvK2RV2RlS20ucgnKgWE+FMR+oU=
+github.com/jrick/dcrd/rpc/jsonrpc/types/v4 v4.0.0-20240416195417-6ebbdc0bfe69 h1:z6BhEjuOb9TUz360RRVZQFA14CUV/OGTBTH7Inw1vKQ=
+github.com/jrick/dcrd/rpc/jsonrpc/types/v4 v4.0.0-20240416195417-6ebbdc0bfe69/go.mod h1:dDHO7ivrPAhZjFD3LoOJN/kdq5gi0sxie6zCsWHAiUo=
+github.com/jrick/dcrd/wire v1.3.1-0.20240416195417-6ebbdc0bfe69 h1:qK2OB/tLO2X6o4sr8WBKzDkehKGNMMm2BdwIBVhD1n0=
+github.com/jrick/dcrd/wire v1.3.1-0.20240416195417-6ebbdc0bfe69/go.mod h1:1Q8zw6prpm2lNs042N0Wk0OnW8u167Wb+oNHXtDl4L0=
 github.com/jrick/logrotate v1.0.0 h1:lQ1bL/n9mBNeIXoTUoYRlK4dHuNJVofX9oWqBtPnSzI=
 github.com/jrick/logrotate v1.0.0/go.mod h1:LNinyqDIJnpAur+b8yyulnQw/wDuN1+BYKlTRt3OuAQ=
 github.com/jrick/wsrpc/v2 v2.3.5 h1:CwdycaR/df09iGkPMXs1FxqAHMCQbdAiTGoHfOrtuds=
