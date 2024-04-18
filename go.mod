@@ -59,8 +59,8 @@ require (
 	lukechampine.com/blake3 v1.2.1 // indirect
 )
 
-replace github.com/decred/dcrd/wire => github.com/jrick/dcrd/wire v1.3.1-0.20240416195417-6ebbdc0bfe69
+replace github.com/decred/dcrd/wire => github.com/jrick/dcrd/wire v1.3.1-0.20240418155401-e8166891fcde
 
-replace github.com/decred/dcrd/rpc/jsonrpc/types/v4 => github.com/jrick/dcrd/rpc/jsonrpc/types/v4 v4.0.0-20240416195417-6ebbdc0bfe69
+replace github.com/decred/dcrd/rpc/jsonrpc/types/v4 => github.com/jrick/dcrd/rpc/jsonrpc/types/v4 v4.0.0-20240418155401-e8166891fcde
 
-replace github.com/decred/dcrd/mixing => github.com/jrick/dcrd/mixing v0.0.0-20240416195417-6ebbdc0bfe69
+replace github.com/decred/dcrd/mixing => github.com/jrick/dcrd/mixing v0.0.0-20240418155401-e8166891fcde
