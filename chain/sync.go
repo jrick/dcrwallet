@@ -482,7 +482,7 @@ func (s *Syncer) waitRPCSync(ctx context.Context, minHeight int64) error {
 		}
 
 		if info.Headers > minHeight {
-			minHeight = info.Headers
+			minHeight = info.Headers - 1
 		}
 		if info.Blocks >= minHeight && (isSimnet || !info.InitialBlockDownload) {
 			// dcrd is synced.
