@@ -764,7 +764,7 @@ type notifier struct {
 }
 
 func (n *notifier) Notify(method string, params json.RawMessage) error {
-	log.Infof("Received %q notification")
+	log.Infof("Received %q notification", method)
 
 	s := n.syncer
 	op := errors.Op(method)
