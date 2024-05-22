@@ -484,7 +484,7 @@ func (s *Syncer) waitRPCSync(ctx context.Context, minHeight int64) error {
 		if info.Headers > minHeight {
 			minHeight = info.Headers
 		}
-		if info.Blocks >= minHeight - 1 { // && (isSimnet || !info.InitialBlockDownload) {
+		if info.Blocks >= minHeight-1 { // && (isSimnet || !info.InitialBlockDownload) {
 			// dcrd is synced.
 			return nil
 		}
@@ -764,6 +764,8 @@ type notifier struct {
 }
 
 func (n *notifier) Notify(method string, params json.RawMessage) error {
+	log.Infof("Received %q notification")
+
 	s := n.syncer
 	op := errors.Op(method)
 	ctx, task := trace.NewTask(n.ctx, method)
