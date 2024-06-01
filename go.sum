@@ -114,8 +114,8 @@ github.com/jessevdk/go-flags v1.5.0 h1:1jKYvbxEjfUl0fmqTCOfonvskHHXMjBySTLW4y9LF
 github.com/jessevdk/go-flags v1.5.0/go.mod h1:Fw0T6WPc1dYxT4mKEZRfG5kJhaTDP9pj1c2EWnYs/m4=
 github.com/jrick/bitset v1.0.0 h1:Ws0PXV3PwXqWK2n7Vz6idCdrV/9OrBXgHEJi27ZB9Dw=
 github.com/jrick/bitset v1.0.0/go.mod h1:ZOYB5Uvkla7wIEY4FEssPVi3IQXa02arznRaYaAEPe4=
-github.com/jrick/dcrd/mixing v0.0.0-20240531211925-db25943aea5a h1:Oew0As0IdbR1U1+fmnKsQ+5Bi8teiFuaUTtvsatACAA=
-github.com/jrick/dcrd/mixing v0.0.0-20240531211925-db25943aea5a/go.mod h1:W3K7yJKmoI03G2U5Yw+HSRNe6lLBegi63ZR6fFLnM9c=
+github.com/jrick/dcrd/mixing v0.0.0-20240601143703-b6e265f0f515 h1:X2wH9ZPA8UMLZ4ZgRquH2cPJbk5m2OXo+/zEOKsodhU=
+github.com/jrick/dcrd/mixing v0.0.0-20240601143703-b6e265f0f515/go.mod h1:W3K7yJKmoI03G2U5Yw+HSRNe6lLBegi63ZR6fFLnM9c=
 github.com/jrick/logrotate v1.0.0 h1:lQ1bL/n9mBNeIXoTUoYRlK4dHuNJVofX9oWqBtPnSzI=
 github.com/jrick/logrotate v1.0.0/go.mod h1:LNinyqDIJnpAur+b8yyulnQw/wDuN1+BYKlTRt3OuAQ=
 github.com/jrick/wsrpc/v2 v2.3.5 h1:CwdycaR/df09iGkPMXs1FxqAHMCQbdAiTGoHfOrtuds=
