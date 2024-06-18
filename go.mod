@@ -13,7 +13,7 @@ require (
 	github.com/decred/dcrd/chaincfg/v3 v3.2.1
 	github.com/decred/dcrd/connmgr/v3 v3.1.2
 	github.com/decred/dcrd/crypto/blake256 v1.0.1
-	github.com/decred/dcrd/crypto/rand v0.0.0-20240614031620-f7dd7c89f0a6
+	github.com/decred/dcrd/crypto/rand v1.0.0
 	github.com/decred/dcrd/crypto/ripemd160 v1.0.2
 	github.com/decred/dcrd/dcrec v1.0.1
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0
@@ -59,3 +59,5 @@ require (
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
 	lukechampine.com/blake3 v1.3.0 // indirect
 )
+
+replace github.com/decred/dcrd/mixing => github.com/jrick/dcrd/mixing v0.0.0-20240614171105-d7213e383fef
