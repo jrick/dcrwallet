@@ -39,6 +39,8 @@ github.com/decred/dcrd/chaincfg/v3 v3.2.1 h1:x9zKJaU24WAKbxAR1UyFKHlM3oJgP0H9Lod
 github.com/decred/dcrd/chaincfg/v3 v3.2.1/go.mod h1:SDCWDtY7BLj0leXc9FuoA1YjSVKyCIBVAyxwZn6+sXc=
 github.com/decred/dcrd/connmgr/v3 v3.1.2 h1:+xNopie2L3YYwwkz51k0h/pASATOBzHtl2O8eodGg04=
 github.com/decred/dcrd/connmgr/v3 v3.1.2/go.mod h1:tdbErFiNOuy/sHrX2mwaOk+r1HLs3EBz2EGxsocMPe4=
+github.com/decred/dcrd/container/lru v1.0.0 h1:7foQymtbu18aQWYiY9RnNIeE+kvpiN+fiBQ3+viyJjI=
+github.com/decred/dcrd/container/lru v1.0.0/go.mod h1:vlPwj0l+IzAHhQSsbgQnJgO5Cte78+yI065V+Mc5PRQ=
 github.com/decred/dcrd/crypto/blake256 v1.0.1 h1:7PltbUIQB7u/FfZ39+DGa/ShuMyJ5ilcvdfma9wOH6Y=
 github.com/decred/dcrd/crypto/blake256 v1.0.1/go.mod h1:2OfgNZ5wDpcsFmHmCK5gZTPcCXqlm2ArzUIkw9czNJo=
 github.com/decred/dcrd/crypto/rand v1.0.0 h1:Ah9Asl36OZt09sGSMbJZuL1HfwGdlC38q/ZUeLDVKRg=
@@ -116,8 +118,8 @@ github.com/jessevdk/go-flags v1.5.0 h1:1jKYvbxEjfUl0fmqTCOfonvskHHXMjBySTLW4y9LF
 github.com/jessevdk/go-flags v1.5.0/go.mod h1:Fw0T6WPc1dYxT4mKEZRfG5kJhaTDP9pj1c2EWnYs/m4=
 github.com/jrick/bitset v1.0.0 h1:Ws0PXV3PwXqWK2n7Vz6idCdrV/9OrBXgHEJi27ZB9Dw=
 github.com/jrick/bitset v1.0.0/go.mod h1:ZOYB5Uvkla7wIEY4FEssPVi3IQXa02arznRaYaAEPe4=
-github.com/jrick/dcrd/mixing v0.0.0-20240614171105-d7213e383fef h1:N0Z93xlgY95mr6Md6yztGbEGZSusPDnXit55n3rZnl8=
-github.com/jrick/dcrd/mixing v0.0.0-20240614171105-d7213e383fef/go.mod h1:fLXOpYp32CugEzUVigw9T7TbfFdri06pGn7IRTXOLHc=
+github.com/jrick/dcrd/mixing v0.0.0-20240619161158-e76b56eb8c40 h1:J/fUD8d7x9XhnRpXTX50Un49/LrD7mZbhSW24zqKtQI=
+github.com/jrick/dcrd/mixing v0.0.0-20240619161158-e76b56eb8c40/go.mod h1:ySvVwTZyVz5YvevA6YjPrB6pJEwTm7IkHohTfaiHh2c=
 github.com/jrick/logrotate v1.0.0 h1:lQ1bL/n9mBNeIXoTUoYRlK4dHuNJVofX9oWqBtPnSzI=
 github.com/jrick/logrotate v1.0.0/go.mod h1:LNinyqDIJnpAur+b8yyulnQw/wDuN1+BYKlTRt3OuAQ=
 github.com/jrick/wsrpc/v2 v2.3.5 h1:CwdycaR/df09iGkPMXs1FxqAHMCQbdAiTGoHfOrtuds=
