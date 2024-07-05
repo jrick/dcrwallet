@@ -538,19 +538,21 @@ func (rp *RemotePeer) sendWaitingInventory(ctx context.Context) error {
 	sendInvMsg := func(invList []*wire.InvVect) error {
 		msg := new(wire.MsgInv)
 		msg.InvList = invList
-		return rp.sendMessageAck(ctx, msg)
+		return rp.sendMessageSynchronous(ctx, msg)
 	}
 
-	s := rp.waitingInvs
-	for len(s) != 0 {
-		l := len(s)
-		if l > wire.MaxInvPerMsg {
-			l = wire.MaxInvPerMsg
+	ivs := rp.waitingInvs[:0]
+	for _, iv := range rp.waitingInvs {
+		if !rp.invsRecv.Contains(iv.Hash) {
+			ivs = append(ivs, iv)
+			if len(ivs) == wire.MaxInvPerMsg {
+				sendInvMsg(ivs)
+				ivs = ivs[:0]
+			}
 		}
-		if err := sendInvMsg(s[:l]); err != nil {
-			return err
-		}
-		s = s[l:]
+	}
+	if len(ivs) > 0 {
+		sendInvMsg(ivs)
 	}
 	rp.waitingInvs = rp.waitingInvs[:0]
 	return nil
@@ -2124,9 +2126,9 @@ func (rp *RemotePeer) SendMessage(ctx context.Context, msg wire.Message) error {
 	}
 }
 
-// sendMessageAck sends a message to a remote peer, waiting until the write
-// finishes before returning.
-func (rp *RemotePeer) sendMessageAck(ctx context.Context, msg wire.Message) error {
+// sendMessageSynchronous sends a message to a remote peer, waiting until the
+// write finishes before returning.
+func (rp *RemotePeer) sendMessageSynchronous(ctx context.Context, msg wire.Message) error {
 	ctx, cancel := context.WithTimeout(ctx, stallTimeout)
 	defer cancel()
 	ack := make(chan struct{}, 1)
@@ -2223,6 +2225,10 @@ func (rp *RemotePeer) receivedInv(ctx context.Context, inv *wire.MsgInv) {
 		err := errors.E(op, errors.Protocol, "received tx in msginv when tx relaying is disabled")
 		rp.Disconnect(err)
 		return
+	}
+
+	for _, iv := range inv.InvList {
+		rp.invsRecv.Add(iv.Hash)
 	}
 
 	// Ignore if the user is not interested in invs.

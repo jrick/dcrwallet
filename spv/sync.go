@@ -1898,5 +1898,13 @@ func (s *Syncer) handleMixMessage(ctx context.Context, rp *p2p.RemotePeer, msg m
 		return err
 	}
 
-	return
+	origPeer := rp
+	s.forRemotes(func(rp *p2p.RemotePeer) error {
+		if rp != origPeer && rp.Pver() >= wire.MixVersion {
+			rp.PublishMixMessages(ctx, msg)
+		}
+		return nil
+	})
+
+	return nil
 }
