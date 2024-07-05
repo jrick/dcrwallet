@@ -60,3 +60,5 @@ require (
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
 	lukechampine.com/blake3 v1.3.0 // indirect
 )
+
+replace github.com/decred/dcrd/mixing => github.com/jrick/dcrd/mixing v0.0.0-20240705160846-4e5e3f01b9a4
