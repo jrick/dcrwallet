@@ -5,20 +5,13 @@ permissions:
 
 jobs:
   build:
-    name: Go CI
-    runs-on: ubuntu-latest
     strategy:
       matrix:
-        go: ["1.21", "1.22"]
+        os: [ubuntu-latest macos-latest]
+    runs-on:
+      ${{ matrix.os }}
     steps:
-      - name: Set up Go
-        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 #5.0.0
-        with:
-          go-version: ${{ matrix.go }}
-      - name: Check out source
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 #v4.1.1
-      - name: Build
-        run: go build ./...
-      - name: Test
-        run: |
-          sh ./run_tests.sh
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 #v4.1.7
+      - uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b #v27
+      - run: nix build
+      - run: nix flake check
