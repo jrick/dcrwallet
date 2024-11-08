@@ -3,7 +3,7 @@ module decred.org/dcrwallet/v5
 go 1.22
 
 require (
-	decred.org/cspp/v2 v2.2.0
+	decred.org/cspp/v2 v2.3.0
 	github.com/decred/dcrd/addrmgr/v2 v2.0.4
 	github.com/decred/dcrd/blockchain/stake/v5 v5.0.1
 	github.com/decred/dcrd/blockchain/standalone/v2 v2.2.1
@@ -61,4 +61,4 @@ require (
 	lukechampine.com/blake3 v1.3.0 // indirect
 )
 
-replace github.com/decred/dcrd/mixing => github.com/jrick/dcrd/mixing v0.0.0-20241108151120-fa187f5f61fe
+replace github.com/decred/dcrd/mixing => github.com/jrick/dcrd/mixing v0.0.0-20241108192923-aeeb3257b3e2
