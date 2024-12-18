@@ -19,7 +19,7 @@
         default = pkgs.mkShell {
           nativeBuildInputs = with pkgs; [
             go_1_23
-            protobuf
+            protobuf_29
           ];
         };
       });
