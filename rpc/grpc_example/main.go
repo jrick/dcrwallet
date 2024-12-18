@@ -61,10 +61,10 @@ func run() error {
 	defer conn.Close()
 	c := pb.NewWalletServiceClient(conn)
 
-	balanceRequest := &pb.BalanceRequest{
+	balanceRequest := pb.BalanceRequest_builder{
 		AccountNumber:         0,
 		RequiredConfirmations: 1,
-	}
+	}.Build()
 	balanceResponse, err := c.Balance(ctx, balanceRequest)
 	if err != nil {
 		return err
@@ -75,9 +75,9 @@ func run() error {
 	decodedTx := func(tx string) error {
 		rawTx, _ := hex.DecodeString(tx)
 		dmClient := pb.NewDecodeMessageServiceClient(conn)
-		decodeRequest := &pb.DecodeRawTransactionRequest{
+		decodeRequest := pb.DecodeRawTransactionRequest_builder{
 			SerializedTransaction: rawTx,
-		}
+		}.Build()
 		decodeResponse, err := dmClient.DecodeRawTransaction(ctx, decodeRequest)
 		if err != nil {
 			return err
@@ -85,7 +85,7 @@ func run() error {
 
 		// tj, _ := json.MarshalIndent(decodeResponse.Transaction, "", "   ")
 		// fmt.Println(string(tj))
-		fmt.Println(prototext.MarshalOptions{Multiline: true}.Format(decodeResponse.Transaction))
+		fmt.Println(prototext.MarshalOptions{Multiline: true}.Format(decodeResponse.GetTransaction()))
 		return nil
 	}
 
@@ -104,9 +104,9 @@ func run() error {
 		if err != nil {
 			return err
 		}
-		importScriptRequest := &pb.ImportScriptRequest{
+		importScriptRequest := pb.ImportScriptRequest_builder{
 			Script: scriptB,
-		}
+		}.Build()
 		_, err = wsClient.ImportScript(ctx, importScriptRequest)
 		if err != nil {
 			return err
@@ -122,11 +122,11 @@ func run() error {
 	seed[31] = 1
 
 	// Import a voting account from seed.
-	importVAFSRequest := &pb.ImportVotingAccountFromSeedRequest{
+	importVAFSRequest := pb.ImportVotingAccountFromSeedRequest_builder{
 		Seed:       seed[:],
 		Name:       acctName,
 		Passphrase: acctPass,
-	}
+	}.Build()
 	importVAFSReqResp, err := wsClient.ImportVotingAccountFromSeed(ctx, importVAFSRequest)
 	if err != nil {
 		if status.Code(err) != codes.AlreadyExists {
@@ -137,7 +137,7 @@ func run() error {
 			return err
 		}
 		var found bool
-		for _, acct := range acctsResp.Accounts {
+		for _, acct := range acctsResp.GetAccounts() {
 			if acct.AccountName == acctName {
 				found = true
 				acctN = acct.AccountNumber
@@ -160,11 +160,11 @@ func run() error {
 
 	for _, addr := range nextAddrs {
 		// Add an owned address to validated addresses.
-		nextAddrReq := &pb.NextAddressRequest{
+		nextAddrReq := pb.NextAddressRequest_builder{
 			Account:   addr.acct,
 			Kind:      addr.branch,
 			GapPolicy: pb.NextAddressRequest_GAP_POLICY_IGNORE,
-		}
+		}.Build()
 		nextAddressResp, err := wsClient.NextAddress(context.Background(), nextAddrReq)
 		if addr.wantErr {
 			if err != nil {
@@ -182,9 +182,9 @@ func run() error {
 	fmt.Println()
 
 	for _, addr := range validateAddrs {
-		validateAddrRequest := &pb.ValidateAddressRequest{
+		validateAddrRequest := pb.ValidateAddressRequest_builder{
 			Address: addr,
-		}
+		}.Build()
 		validateAddrResp, err := wsClient.ValidateAddress(ctx, validateAddrRequest)
 		if err != nil {
 			return err
@@ -197,11 +197,11 @@ func run() error {
 	fmt.Println()
 
 	for _, path := range addrPaths {
-		addrRequest := &pb.AddressRequest{
+		addrRequest := pb.AddressRequest_builder{
 			Account: path.acct,
 			Kind:    pb.AddressRequest_Kind(path.branch),
 			Index:   path.idx,
-		}
+		}.Build()
 		fmt.Printf("Name: %s\n", path.name)
 		addrResp, err := wsClient.Address(context.Background(), addrRequest)
 		if path.wantErr {
@@ -217,12 +217,12 @@ func run() error {
 		fmt.Println(prototext.MarshalOptions{Multiline: true}.Format(addrResp))
 	}
 
-	_, err = wsClient.UnlockAccount(ctx, &pb.UnlockAccountRequest{Passphrase: acctPass, AccountNumber: acctN})
+	_, err = wsClient.UnlockAccount(ctx, pb.UnlockAccountRequest_builder{Passphrase: acctPass, AccountNumber: acctN}.Build())
 	if err != nil {
 		return err
 	}
 
-	pKey, err := wsClient.DumpPrivateKey(ctx, &pb.DumpPrivateKeyRequest{Address: importedAcctAddr})
+	pKey, err := wsClient.DumpPrivateKey(ctx, pb.DumpPrivateKeyRequest_builder{Address: importedAcctAddr}.Build())
 	if err != nil {
 		return err
 	}

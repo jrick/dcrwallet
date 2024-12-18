@@ -1,8 +1,10 @@
-syntax = "proto3";
+edition = "2023";
 
 package walletrpc;
+import "google/protobuf/go_features.proto";
 
 option go_package = "decred.org/dcrwallet/v5/rpc/walletrpc";
+option features.(pb.go).api_level = API_HYBRID;
 
 service VersionService {
 	rpc Version (VersionRequest) returns (VersionResponse);
@@ -550,7 +552,7 @@ message ConstructTransactionResponse {
 
 message SignTransactionRequest {
 	reserved 3;
-	reserved "input_indexes";
+	reserved input_indexes;
 	message AdditionalScript {
 		bytes transaction_hash = 1;
 		uint32 output_index = 2;
