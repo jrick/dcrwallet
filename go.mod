@@ -21,7 +21,7 @@ require (
 	github.com/decred/dcrd/dcrutil/v4 v4.0.2
 	github.com/decred/dcrd/gcs/v4 v4.1.0
 	github.com/decred/dcrd/hdkeychain/v3 v3.1.2
-	github.com/decred/dcrd/mixing v0.5.1-0.20250319155359-2b7d311f4a81
+	github.com/decred/dcrd/mixing v0.0.0-20250820185615-85fdec7a60a2
 	github.com/decred/dcrd/rpc/jsonrpc/types/v4 v4.3.0
 	github.com/decred/dcrd/rpcclient/v8 v8.0.1
 	github.com/decred/dcrd/txscript/v4 v4.1.1
@@ -59,3 +59,5 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250115164207-1a7da9e5054f // indirect
 	lukechampine.com/blake3 v1.3.0 // indirect
 )
+
+replace github.com/decred/dcrd/mixing => github.com/jrick/dcrd/mixing v0.0.0-20250820185615-85fdec7a60a2
