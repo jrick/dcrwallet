@@ -59,3 +59,5 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250115164207-1a7da9e5054f // indirect
 	lukechampine.com/blake3 v1.3.0 // indirect
 )
+
+replace github.com/decred/dcrd/mixing => github.com/jrick/dcrd/mixing v0.0.0-20251106170822-95b68fae05ae
