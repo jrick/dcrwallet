@@ -60,4 +60,4 @@ require (
 	lukechampine.com/blake3 v1.3.0 // indirect
 )
 
-replace github.com/decred/dcrd/mixing => github.com/jrick/dcrd/mixing v0.0.0-20251107171220-2d32743c0615
+replace github.com/decred/dcrd/mixing => github.com/jrick/dcrd/mixing v0.0.0-20251107172340-2956ce85505d
