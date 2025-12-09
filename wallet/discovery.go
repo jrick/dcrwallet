@@ -829,128 +829,6 @@ func (w *Wallet) DiscoverActiveAddresses(ctx context.Context, n NetworkBackend, 
 		}
 	}
 
-	// Discover address usage within known accounts
-	// Usage recorded in finder.usage
-	finder, err := newAddrFinder(ctx, w, gapLimit)
-	if err != nil {
-		return errors.E(op, err)
-	}
-	log.Infof("Discovering used addresses for %d account(s)", len(finder.usage))
-	lastUsed := append([]accountUsage(nil), finder.usage...)
-	rpc, ok := n.(usedAddressesQuerier)
-	if ok {
-		f := existsAddrIndexFinder{w, rpc, gapLimit}
-		err = f.find(ctx, finder)
-	} else {
-		err = finder.find(ctx, startBlock, n)
-	}
-	if err != nil {
-		return errors.E(op, err)
-	}
-	for i := range finder.usage {
-		u := &finder.usage[i]
-		log.Infof("Account %d next child indexes: external:%d internal:%d",
-			u.account, u.extLastUsed+1, u.intLastUsed+1)
-	}
-
-	// Save discovered addresses for each account plus additional future
-	// addresses that may be used by other wallets sharing the same seed.
-	// Multiple updates are used to allow cancellation.
-	log.Infof("Updating DB with discovered addresses...")
-	for i := range finder.usage {
-		u := &finder.usage[i]
-		acct := u.account
-
-		const N = 256
-		max := u.extLastUsed + gapLimit
-		for j := lastUsed[i].extLastUsed; ; j += N {
-			if ctx.Err() != nil {
-				return ctx.Err()
-			}
-
-			to := min(j+N, max)
-			err = walletdb.Update(ctx, w.db, func(dbtx walletdb.ReadWriteTx) error {
-				ns := dbtx.ReadWriteBucket(waddrmgrNamespaceKey)
-				return w.manager.SyncAccountToAddrIndex(ns, acct, to, 0)
-			})
-			if err != nil {
-				return errors.E(op, err)
-			}
-			if to == max {
-				break
-			}
-		}
-
-		max = u.intLastUsed + gapLimit
-		for j := lastUsed[i].intLastUsed; ; j += N {
-			if ctx.Err() != nil {
-				return ctx.Err()
-			}
-
-			to := min(j+N, max)
-			err = walletdb.Update(ctx, w.db, func(dbtx walletdb.ReadWriteTx) error {
-				ns := dbtx.ReadWriteBucket(waddrmgrNamespaceKey)
-				return w.manager.SyncAccountToAddrIndex(ns, acct, to, 1)
-			})
-			if err != nil {
-				return errors.E(op, err)
-			}
-			if to == max {
-				break
-			}
-		}
-
-		// To avoid deadlocks lock mutex before grabbing DB transaction, this is
-		// what we do in other places.
-		w.addressBuffersMu.Lock()
-		err = walletdb.Update(ctx, w.db, func(dbtx walletdb.ReadWriteTx) error {
-			ns := dbtx.ReadBucket(waddrmgrNamespaceKey)
-			if u.extLastUsed < hd.HardenedKeyStart {
-				err = w.manager.MarkUsedChildIndex(dbtx, acct, 0, u.extLastUsed)
-				if err != nil {
-					return err
-				}
-			}
-			if u.intLastUsed < hd.HardenedKeyStart {
-				err = w.manager.MarkUsedChildIndex(dbtx, acct, 1, u.intLastUsed)
-				if err != nil {
-					return err
-				}
-			}
-
-			props, err := w.manager.AccountProperties(ns, acct)
-			if err != nil {
-				return err
-			}
-
-			// Update last used index and cursor for this account's address
-			// buffers.  The cursor must not be reset backwards to avoid the
-			// possibility of address reuse.
-			acctData := w.addressBuffers[acct]
-			extern := &acctData.albExternal
-			if props.LastUsedExternalIndex+1 > extern.lastUsed+1 {
-				extern.cursor += extern.lastUsed - props.LastUsedExternalIndex
-				if extern.cursor > ^uint32(0)>>1 {
-					extern.cursor = 0
-				}
-				extern.lastUsed = props.LastUsedExternalIndex
-			}
-			intern := &acctData.albInternal
-			if props.LastUsedInternalIndex+1 > intern.lastUsed+1 {
-				intern.cursor += intern.lastUsed - props.LastUsedInternalIndex
-				if intern.cursor > ^uint32(0)>>1 {
-					intern.cursor = 0
-				}
-				intern.lastUsed = props.LastUsedInternalIndex
-			}
-			return nil
-		})
-		w.addressBuffersMu.Unlock()
-		if err != nil {
-			return errors.E(op, err)
-		}
-	}
-
 	// If the wallet does not know the current coin type (e.g. it is a watching
 	// only wallet created from an account master pubkey) or when the wallet
 	// uses the SLIP0044 coin type, there is nothing more to do.
@@ -961,10 +839,7 @@ func (w *Wallet) DiscoverActiveAddresses(ctx context.Context, n NetworkBackend, 
 
 	// Do not upgrade legacy coin type wallets if there are returned or used
 	// addresses or coin type upgrades are disabled.
-	if !isSLIP0044CoinType && (w.disableCoinTypeUpgrades ||
-		len(finder.usage) != 1 ||
-		finder.usage[0].extLastUsed != ^uint32(0) ||
-		finder.usage[0].intLastUsed != ^uint32(0)) {
+	if !isSLIP0044CoinType && w.disableCoinTypeUpgrades {
 		log.Infof("Finished address discovery")
 		log.Warnf("Wallet contains addresses derived for the legacy BIP0044 " +
 			"coin type and seed restores may not work with some other wallet " +
