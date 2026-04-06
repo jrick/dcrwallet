@@ -64,3 +64,5 @@ tool (
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc
 	google.golang.org/protobuf/cmd/protoc-gen-go
 )
+
+replace github.com/decred/dcrd/mixing => github.com/jrick/dcrd/mixing v0.0.0-20260406210459-fa4cab36a165

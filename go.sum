@@ -50,8 +50,6 @@ github.com/decred/dcrd/gcs/v4 v4.1.1 h1:3ELoII8uwIxXFGq6ETB29AjW7Lmr3McQOYsSD3dv
 github.com/decred/dcrd/gcs/v4 v4.1.1/go.mod h1:5q1EnYp1CzJw057/XfRB6UGkos24fpu2r2ZLuwE7YdE=
 github.com/decred/dcrd/hdkeychain/v3 v3.1.3 h1:Kn2wfj5cOR6pQO/WrYOMT1KK12IgWFEeQwnk1o81WsU=
 github.com/decred/dcrd/hdkeychain/v3 v3.1.3/go.mod h1:mDAuGaH6InRD+hKVeVJsjLD/ih1mD3aCKURNHS8Tq2s=
-github.com/decred/dcrd/mixing v0.7.1 h1:TJs7R0DtYCUEVWQm215jhM4GZeEUzO+aBnOr81mQRh4=
-github.com/decred/dcrd/mixing v0.7.1/go.mod h1:WE2YmCL3KOySA2Yv+EZpGUnrvIF1g3fiKH3nIsltbf8=
 github.com/decred/dcrd/rpc/jsonrpc/types/v4 v4.4.0 h1:BBVaYemabsFsaqNVlCmacoZlSsLDqwHYIs8ty6fg59Q=
 github.com/decred/dcrd/rpc/jsonrpc/types/v4 v4.4.0/go.mod h1:w4C6hZ7ywpc8/YNkiPAknCaqKofF68cRhUiTglEIc7s=
 github.com/decred/dcrd/rpcclient/v8 v8.1.0 h1:FLZ1j4ub7+O9oCIcKf+frYCrZW++G3FSzk2/f4U80hI=
@@ -86,6 +84,8 @@ github.com/jessevdk/go-flags v1.5.0 h1:1jKYvbxEjfUl0fmqTCOfonvskHHXMjBySTLW4y9LF
 github.com/jessevdk/go-flags v1.5.0/go.mod h1:Fw0T6WPc1dYxT4mKEZRfG5kJhaTDP9pj1c2EWnYs/m4=
 github.com/jrick/bitset v1.0.0 h1:Ws0PXV3PwXqWK2n7Vz6idCdrV/9OrBXgHEJi27ZB9Dw=
 github.com/jrick/bitset v1.0.0/go.mod h1:ZOYB5Uvkla7wIEY4FEssPVi3IQXa02arznRaYaAEPe4=
+github.com/jrick/dcrd/mixing v0.0.0-20260406210459-fa4cab36a165 h1:94EdyBa6G/NsHfLzF2MQNzih1J9SOPmKNLh8miHZSjA=
+github.com/jrick/dcrd/mixing v0.0.0-20260406210459-fa4cab36a165/go.mod h1:riSgG1GpWXl8LVuBvo8WXuFgcBj01ZGpTAxT/4PrtU0=
 github.com/jrick/logrotate v1.0.0 h1:lQ1bL/n9mBNeIXoTUoYRlK4dHuNJVofX9oWqBtPnSzI=
 github.com/jrick/logrotate v1.0.0/go.mod h1:LNinyqDIJnpAur+b8yyulnQw/wDuN1+BYKlTRt3OuAQ=
 github.com/jrick/wsrpc/v2 v2.3.8 h1:9vfM8o9g00HXQb/3D6+Y9Cy1uybjD7K1272vtdXXBps=
