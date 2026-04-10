@@ -65,4 +65,4 @@ tool (
 	google.golang.org/protobuf/cmd/protoc-gen-go
 )
 
-replace github.com/decred/dcrd/mixing => github.com/jrick/dcrd/mixing v0.0.0-20260410141210-aa516dad18c9
+replace github.com/decred/dcrd/mixing => github.com/jrick/dcrd/mixing de4c728436be6ef9c04ed41695f63b587d7b0428
