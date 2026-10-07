@@ -5,13 +5,13 @@ go 1.24.0
 require (
 	decred.org/cspp/v2 v2.4.0
 	github.com/decred/dcrd/addrmgr/v3 v3.0.0
-	github.com/decred/dcrd/blockchain/stake/v5 v5.0.2
-	github.com/decred/dcrd/blockchain/standalone/v2 v2.2.2
-	github.com/decred/dcrd/blockchain/v5 v5.1.0
+	github.com/decred/dcrd/blockchain/stake/v5 v5.0.3
+	github.com/decred/dcrd/blockchain/standalone/v2 v2.3.0
+	github.com/decred/dcrd/blockchain/v5 v5.1.1
 	github.com/decred/dcrd/certgen v1.2.0
 	github.com/decred/dcrd/chaincfg/chainhash v1.0.5
 	github.com/decred/dcrd/chaincfg/v3 v3.3.0
-	github.com/decred/dcrd/connmgr/v3 v3.1.3
+	github.com/decred/dcrd/connmgr/v3 v3.1.4
 	github.com/decred/dcrd/crypto/blake256 v1.1.0
 	github.com/decred/dcrd/crypto/rand v1.0.1
 	github.com/decred/dcrd/crypto/ripemd160 v1.0.2
@@ -21,11 +21,11 @@ require (
 	github.com/decred/dcrd/dcrutil/v4 v4.0.3
 	github.com/decred/dcrd/gcs/v4 v4.1.1
 	github.com/decred/dcrd/hdkeychain/v3 v3.1.3
-	github.com/decred/dcrd/mixing v0.7.4
+	github.com/decred/dcrd/mixing v0.7.5-0.20261007190321-6b65e0d1a277
 	github.com/decred/dcrd/rpc/jsonrpc/types/v4 v4.4.0
 	github.com/decred/dcrd/rpcclient/v8 v8.1.0
 	github.com/decred/dcrd/txscript/v4 v4.1.2
-	github.com/decred/dcrd/wire v1.7.5
+	github.com/decred/dcrd/wire v1.8.0
 	github.com/decred/go-socks v1.1.0
 	github.com/decred/slog v1.2.0
 	github.com/decred/vspd/client/v4 v4.0.2
